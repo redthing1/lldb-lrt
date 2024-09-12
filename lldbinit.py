@@ -3811,7 +3811,7 @@ def dump_jumpx86(eflags):
                 output("  " + COLOR_CONDITIONAL_YES + "=> {:s}".format(output_string) + RESET)
 
 def showreg64(reg, val):
-    output(COLOR_REGNAME + "  {:>3s}: ".format(reg.upper()) + RESET)
+    output(COLOR_REGNAME + "  {:>3s}: ".format(reg) + RESET)
     c = COLOR_REGVAL_MODIFIED
     if val == old_x64[reg]:
         c = COLOR_REGVAL
@@ -3862,7 +3862,7 @@ def reg64():
     line = [ "cs", "fs", "gs" ]
     for reg in line:
         r = current[reg]
-        output(COLOR_REGNAME + "  {:>3s}: ".format(reg.upper()))
+        output(COLOR_REGNAME + "  {:>3s}: ".format(reg))
         c = COLOR_REGVAL_MODIFIED
         if r == old_x64[reg]:
             c = COLOR_REGVAL
@@ -3871,7 +3871,7 @@ def reg64():
     output("\n")
 
 def showreg32(reg, val):
-    output(COLOR_REGNAME + "  {:>3s}: ".format(reg.upper()) + RESET)
+    output(COLOR_REGNAME + "  {:>3s}: ".format(reg) + RESET)
     c = COLOR_REGVAL_MODIFIED
     if val == old_x86[reg]:
         c = COLOR_REGVAL
@@ -3903,7 +3903,7 @@ def reg32():
     line = [ "cs", "ds", "es", "fs", "gs", "ss" ]
     for reg in line:
         r = current[reg]
-        output(COLOR_REGNAME + "  {:>3s}: ".format(reg.upper()))
+        output(COLOR_REGNAME + "  {:>3s}: ".format(reg))
         c = COLOR_REGVAL_MODIFIED
         if r == old_x86[reg]:
             c = COLOR_REGVAL
@@ -3958,7 +3958,7 @@ def regarm64():
     for row in display:
         for col in row:
             reg_name = col
-            output(COLOR_REGNAME + "  {:>3s}:  ".format(reg_name.upper()) + RESET)
+            output(COLOR_REGNAME + "  {:>3s}:  ".format(reg_name) + RESET)
             reg_value = current[reg_name]
             if reg_value == old_arm64[reg_name]:
                 c = COLOR_REGVAL
