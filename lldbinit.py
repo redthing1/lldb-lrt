@@ -3901,7 +3901,7 @@ def regarm64():
                 c = COLOR_REGVAL
             else:
                 c = COLOR_REGVAL_MODIFIED
-            output(c + "0x%.016X" % (reg_value) + RESET)
+            output(c + "0x%.016x" % (reg_value) + RESET)
             old_arm64[reg_name] = reg_value
         output("\n")
 
@@ -3911,7 +3911,7 @@ def regarm64():
         c = COLOR_REGVAL
     else:
         c = COLOR_REGVAL_MODIFIED
-    output(c + "0x%.016X" % (pc) + RESET)
+    output(c + "0x%.016x" % (pc) + RESET)
     old_arm64["pc"] = pc
     output(" ")
     cpsr = current["cpsr"]
