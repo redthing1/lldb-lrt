@@ -91,7 +91,7 @@ BUILD = "383"
 #
 CONFIG_ENABLE_COLOR = 1
 # light or dark mode
-CONFIG_APPEARANCE = "light"
+CONFIG_APPEARANCE = "dark"
 # display the instruction bytes in disassembler output
 CONFIG_DISPLAY_DISASSEMBLY_BYTES = 1
 # the maximum number of lines to display in disassembler output
