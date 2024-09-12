@@ -91,7 +91,7 @@ BUILD = "383"
 #
 CONFIG_ENABLE_COLOR = 1
 # light or dark mode
-CONFIG_APPEARANCE = "dark"
+CONFIG_APPEARANCE = "redthing1"
 # display the instruction bytes in disassembler output
 CONFIG_DISPLAY_DISASSEMBLY_BYTES = 1
 # the maximum number of lines to display in disassembler output
@@ -206,6 +206,7 @@ if CONFIG_APPEARANCE == "light":
     COLOR_REGVAL_MODIFIED  = RED
     COLOR_SYMBOL_NAME      = BLUE
     COLOR_CURRENT_PC       = RED
+    COLOR_DISASM_LISTING   = BLACK
     COLOR_CONDITIONAL_YES  = REVERSE + GREEN
     COLOR_CONDITIONAL_NO   = REVERSE + RED
     COLOR_HEXDUMP_HEADER   = BLUE
@@ -222,13 +223,31 @@ elif CONFIG_APPEARANCE == "dark":
     COLOR_REGVAL_MODIFIED  = RED
     COLOR_SYMBOL_NAME      = BLUE
     COLOR_CURRENT_PC       = RED
+    COLOR_DISASM_LISTING   = WHITE
     COLOR_CONDITIONAL_YES  = REVERSE + GREEN
     COLOR_CONDITIONAL_NO   = REVERSE + RED
     COLOR_HEXDUMP_HEADER   = BLUE
     COLOR_HEXDUMP_ADDR     = WHITE
     COLOR_HEXDUMP_DATA     = WHITE
     COLOR_HEXDUMP_ASCII    = WHITE
-    COLOR_COMMENT          = GREEN # XXX: test and change
+    COLOR_COMMENT          = GREEN
+elif CONFIG_APPEARANCE == "redthing1":
+    COLOR_REGVAL           = BRIGHT_BLACK
+    COLOR_REGNAME          = GREEN
+    COLOR_CPUFLAGS         = BRIGHT_MAGENTA
+    COLOR_SEPARATOR        = BRIGHT_BLACK
+    COLOR_HIGHLIGHT_LINE   = RED
+    COLOR_REGVAL_MODIFIED  = BRIGHT_RED
+    COLOR_SYMBOL_NAME      = BLUE
+    COLOR_CURRENT_PC       = RED
+    COLOR_DISASM_LISTING   = BRIGHT_BLACK
+    COLOR_CONDITIONAL_YES  = REVERSE + GREEN
+    COLOR_CONDITIONAL_NO   = REVERSE + RED
+    COLOR_HEXDUMP_HEADER   = BLUE
+    COLOR_HEXDUMP_ADDR     = WHITE
+    COLOR_HEXDUMP_DATA     = WHITE
+    COLOR_HEXDUMP_ASCII    = WHITE
+    COLOR_COMMENT          = GREEN
 else:
     print("[-] Invalid CONFIG_APPEARANCE value.")
 
@@ -4258,7 +4277,7 @@ def disassemble(start_address, nrlines):
         if header:
             output(COLOR_CURRENT_PC + "->  0x{:x} (0x{:x}): {}  {}   {}{:s}\n".format(memory_addr, file_addr, bytes_string, mnem, operands, comment) + RESET)
         else:
-            output("    0x{:x} (0x{:x}): {}  {}   {}{:s}\n".format(memory_addr, file_addr, bytes_string, mnem, operands, comment))
+            output(COLOR_DISASM_LISTING + "    0x{:x} (0x{:x}): {}  {}   {}{:s}\n".format(memory_addr, file_addr, bytes_string, mnem, operands, comment))
 
         count += 1
 
