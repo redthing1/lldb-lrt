@@ -314,6 +314,7 @@ MIN_COLUMNS = 125
 MIN_ROWS = 25
 LLDB_MAJOR = 0
 LLDB_MINOR = 0
+LLDB_VARIANT = None # apple or clang: the built-in apple LLDB vs. clang's LLDB (they have different version IDs)
 
 def __lldb_init_module(debugger, internal_dict):
     ''' we can execute lldb commands using debugger.HandleCommand() which makes all output to default
@@ -340,7 +341,7 @@ def __lldb_init_module(debugger, internal_dict):
         print("\033[1m\033[31m[-] failed to find out terminal size.")
         print("[!] lldbinit is best experienced with a terminal size at least {}x{}\033[0m".format(MIN_COLUMNS, MIN_ROWS))
 
-    global g_home, LLDB_MAJOR, LLDB_MINOR
+    global g_home, LLDB_VARIANT, LLDB_MAJOR, LLDB_MINOR
 
     if g_home == "":
         g_home = os.getenv('HOME')
@@ -560,23 +561,41 @@ def __lldb_init_module(debugger, internal_dict):
     # custom commands
     ci.HandleCommand("command script add -h '(lldbinit) Fix return breakpoint.' -f lldbinit.cmd_fixret fixret", res)
     # displays the version banner when lldb is loaded
-    LLDB_MAJOR, LLDB_MINOR = get_lldb_version(debugger)
+    LLDB_VARIANT, LLDB_MAJOR, LLDB_MINOR = get_lldb_version(debugger)
     debugger.HandleCommand("banner")
     return
 
 def get_lldb_version(debugger):
-    lldb_versions_match = re.search(r'[lL][lL][dD][bB]-(\d+)([.](\d+))?([.](\d+))?', debugger.GetVersionString())
-    lldb_version = 0
-    lldb_minor = 0
-    if len(lldb_versions_match.groups()) >= 1 and lldb_versions_match.groups()[0]:
-        lldb_major = int(lldb_versions_match.groups()[0])
-    if len(lldb_versions_match.groups()) >= 5 and lldb_versions_match.groups()[4]:
-        lldb_minor = int(lldb_versions_match.groups()[4])
-    return lldb_major, lldb_minor
+    version_string = debugger.GetVersionString()
+    # print("[+] lldb version: " + version_string)
+
+    apple_pattern = r'lldb-(\d+)(?:\.(\d+))?(?:\.(\d+))?'
+    clang_pattern = r'lldb version (\d+)(?:\.(\d+))?(?:\.(\d+))?'
+
+    # match apple lldb pattern (e.g: lldb-1500.0.404.7)
+    apple_match = re.search(apple_pattern, version_string, re.IGNORECASE)
+    if apple_match:
+        variant = "apple"
+        major = int(apple_match.group(1))
+        minor = int(apple_match.group(2) or 0)
+        return variant, major, minor
+
+    # match clang lldb pattern (e.g: lldb version 18.1.8)
+    clang_match = re.search(clang_pattern, version_string, re.IGNORECASE)
+    if clang_match:
+        variant = "clang"
+        major = int(clang_match.group(1))
+        minor = int(clang_match.group(2) or 0)
+        return variant, major, minor
+
+    # If no match is found, raise an exception
+    raise ValueError("Unable to determine LLDB variant and version from string: " + version_string)
 
 def cmd_banner(debugger,command,result,dict):    
     lldbver = debugger.GetVersionString().split('\n')[0]
-    print(GREEN + "[+] Loaded lldbinit version " + VERSION + "." + BUILD + " @ " + lldbver + RESET)
+    global LLDB_VARIANT, LLDB_MAJOR, LLDB_MINOR
+    # print(GREEN + "[+] Loaded lldbinit version " + VERSION + "." + BUILD + " @ " + lldbver + RESET)
+    print(f"{GREEN}[+] lldbinit v{VERSION}.{BUILD} @ lldb-{LLDB_MAJOR}.{LLDB_MINOR} ({LLDB_VARIANT}){RESET}")
 
 def cmd_lldbinitcmds(debugger, command, result, dict):
     '''Display all available lldbinit commands.'''
@@ -5497,7 +5516,7 @@ def HandleHookStopOnTarget(debugger, command, result, dict):
     # at least Xcode 10.1 has this problem
     # issuing the get memory regions on every stop has huge performance penalty on newer xcode versions (at least with Xcode 15.4)
     # XXX: needs more versions tested to find out where is the true cut off version
-    if LLDB_MAJOR <= 1000:
+    if LLDB_VARIANT == "apple" and LLDB_MAJOR <= 1000:
         if get_process().GetMemoryRegions().GetSize() == 0:
             print("[!] Attaching to process and memory regions info still not available. Use 'context' command to display current state.\n")
             return
