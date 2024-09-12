@@ -331,7 +331,7 @@ def __lldb_init_module(debugger, internal_dict):
 
     # settings
     ci.HandleCommand("settings set target.x86-disassembly-flavor " + CONFIG_FLAVOR, res)
-    ci.HandleCommand("settings set prompt \"(lldbinit) \"", res)
+    ci.HandleCommand("settings set prompt \"(lrt) \"", res)
     ci.HandleCommand("settings set stop-disassembly-count 0", res)
     # set the log level - must be done on startup?
     ci.HandleCommand("settings set target.process.extra-startup-command QSetLogging:bitmask=" + CONFIG_LOG_LEVEL + ";", res)
