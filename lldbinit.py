@@ -338,10 +338,12 @@ def __lldb_init_module(debugger, internal_dict):
     #
     # Breakpoint related commands
     #
-    # replace the default alias with our own version
-    ci.HandleCommand("command unalias b", res)
+    # # replace the default alias with our own version
+    # the original b command supports useful stuff: -a <address-expression> and -s <shlib-name>. it's useful to set breakpoints in specific modules
+    # until we support that let's leave the original 'b' alone
+    # ci.HandleCommand("command unalias b", res)
     # software breakpoints
-    ci.HandleCommand("command script add -h '(lldbinit) Set a software breakpoint.' -f lldbinit.cmd_bp b", res)
+    ci.HandleCommand("command script add -h '(lldbinit) Set a software breakpoint.' -f lldbinit.cmd_bp bb", res)
     # alias "bp" command that exists in gdbinit
     ci.HandleCommand("command alias -h '(lldbinit) Alias to b.' -- bp b", res)
     ci.HandleCommand("command script add -h '(lldbinit) Set a temporary software breakpoint.' -f lldbinit.cmd_bpt bpt", res)
