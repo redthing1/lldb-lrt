@@ -4243,7 +4243,8 @@ def disassemble(start_address, nrlines):
         if inst_base > 0 and g_dbdata != {}:
             # not the most efficient way to do this but converting to hash table is going to increase complexity
             # for almost no benefit speed wise (unless the number of comments is huge)
-            mod_uuid = str(mem_inst.addr.module.uuid)
+            # mod_uuid = str(mem_inst.addr.module.uuid)
+            mod_uuid = str(mem_inst.addr.module.GetUUIDString())
             for k in g_dbdata["comments"]:
                 i = int(k["offset"], 16)
                 if ( k["uuid"] == mod_uuid ) and ( i + inst_base == memory_addr ):
