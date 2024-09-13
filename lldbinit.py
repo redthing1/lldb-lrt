@@ -463,10 +463,10 @@ def __lldb_init_module(debugger, internal_dict):
     ci.HandleCommand("command alias -h '(lldbinit) breakpoint command add alias.' -- bcmd breakpoint command add", res)
     # launch process and stop at entrypoint (not exactly as gdb command that just inserts breakpoint)
     # replace the default run alias with our version
-    ci.HandleCommand("command unalias r", res)
-    ci.HandleCommand("command unalias run", res)
-    ci.HandleCommand("command script add -h '(lldbinit) Start the target and stop at entrypoint.' -f lldbinit.cmd_run r", res)
-    ci.HandleCommand("command alias -h '(lldbinit) Start the target and stop at entrypoint.' -- run r", res)
+    # ci.HandleCommand("command unalias r", res)
+    # ci.HandleCommand("command unalias run", res)
+    ci.HandleCommand("command script add -h '(lldbinit) Start the target and stop at entrypoint.' -f lldbinit.cmd_run rr", res)
+    # ci.HandleCommand("command alias -h '(lldbinit) Start the target and stop at entrypoint.' -- run r", res)
 
     # usually it will be inside dyld and not the target main()
     ci.HandleCommand("command alias -h '(lldbinit) Start target and stop at entrypoint.' -- break_entrypoint process launch --stop-at-entry", res)
