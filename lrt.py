@@ -692,7 +692,11 @@ def __lldb_init_module(debugger, internal_dict):
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Step until call stack changes.' -f lrt.cmd_stcs stcs",
+        "command script add -h '(lrt) Step until call stack changes.' -f lrt.cmd_sutcs sutcs",
+        res,
+    )
+    ci.HandleCommand(
+        "command script add -h '(lrt) Step until branch.' -f lrt.cmd_sutb sutb",
         res,
     )
     # cracking friends
@@ -1117,7 +1121,8 @@ def cmd_lrtcmds(debugger, command, result, dict):
         ["----[ Stepping ]----", ""],
         ["skip", "skip current instruction"],
         ["stepo", "step over calls and loop instructions"],
-        ["stcs", "Step until call stack changes"],
+        ["sutcs", "Step until call stack changes"],
+        ["sutb", "Step until branch"],
         ["----[ Memory ]----", ""],
         ["nop", "patch memory address with NOP"],
         ["null", "patch memory address with NULL"],
@@ -2702,8 +2707,8 @@ Syntax: stepo
         get_process().selected_thread.StepInstruction(False)
 
 
-def cmd_stcs(debugger, command, result, dict):
-    """Step until call stack changes. Use \'stcs help\' for more information."""
+def cmd_sutcs(debugger, command, result, dict):
+    """Step until call stack changes. Use \'sutcs help\' for more information."""
     help = """
 Step until call stack changes.
 """
@@ -2735,6 +2740,42 @@ Step until call stack changes.
             result.PutCString("Call stack depth changed\n")
 
             break
+
+
+def cmd_sutb(debugger, command, result, dict):
+    """Step until branch. Use \'sutb help\' for more information."""
+    help = """
+Step until branch.
+"""
+
+    cmd = command.split()
+    if len(cmd) != 0 and cmd[0] == "help":
+        print(help)
+        return
+
+    debugger.SetAsync(False)
+
+    target = get_target()
+    thread = get_process().selected_thread
+
+    # we will check the current PC and the next PC
+    # if the next PC is not what we expect, we will break
+    curr_pc = get_current_pc()
+    next_pc = curr_pc + get_inst_size(curr_pc)
+
+    while True:
+        thread.StepInstruction(False)
+        new_pc = get_current_pc()
+        if new_pc != next_pc:
+            print(
+                COLOR_LOGINFO
+                + f"[+] Branch detected: 0x{curr_pc:x} -> 0x{new_pc:x}"
+                + RESET
+            )
+            result.PutCString("Branch detected\n")
+            break
+
+        next_pc = new_pc + get_inst_size(new_pc)
 
 
 # Temporarily breakpoint next instruction - this is useful to skip loops (don't want to use stepo for this purpose)
