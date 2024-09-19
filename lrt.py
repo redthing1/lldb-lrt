@@ -13,8 +13,8 @@ To list all implemented commands use 'lrtcmds' command.
 How to install it:
 ------------------
 
-$ cp lldbinit.py ~
-$ echo "command script import ~/lldbinit.py" >> $HOME/.lldbinit
+$ cp lrt.py ~
+$ echo "command script import ~/lrt.py" >> $HOME/.lldbinit
 
 """
 
