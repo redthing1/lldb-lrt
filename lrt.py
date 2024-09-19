@@ -696,7 +696,7 @@ def __lldb_init_module(debugger, internal_dict):
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Step until branch.' -f lrt.cmd_sutb sutb",
+        "command script add -h '(lrt) Step until branch is taken.' -f lrt.cmd_sutb sutb",
         res,
     )
     # cracking friends
@@ -1122,7 +1122,7 @@ def cmd_lrtcmds(debugger, command, result, dict):
         ["skip", "skip current instruction"],
         ["stepo", "step over calls and loop instructions"],
         ["sutcs", "Step until call stack changes"],
-        ["sutb", "Step until branch"],
+        ["sutb", "Step until branch is taken"],
         ["----[ Memory ]----", ""],
         ["nop", "patch memory address with NOP"],
         ["null", "patch memory address with NULL"],
@@ -2743,9 +2743,9 @@ Step until call stack changes.
 
 
 def cmd_sutb(debugger, command, result, dict):
-    """Step until branch. Use \'sutb help\' for more information."""
+    """Step until branch is taken. Use \'sutb help\' for more information."""
     help = """
-Step until branch.
+Step until branch is taken.
 """
 
     cmd = command.split()
