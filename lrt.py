@@ -696,7 +696,11 @@ def __lldb_init_module(debugger, internal_dict):
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Step until branch is taken.' -f lrt.cmd_sutb sutb",
+        "command script add -h '(lrt) Step until branch is taken.' -f lrt.cmd_sutbt sutbt",
+        res,
+    )
+    ci.HandleCommand(
+        "command script add -h '(lrt) Step until end of basic block.' -f lrt.cmd_suebb suebb",
         res,
     )
     # cracking friends
@@ -1122,7 +1126,8 @@ def cmd_lrtcmds(debugger, command, result, dict):
         ["skip", "skip current instruction"],
         ["stepo", "step over calls and loop instructions"],
         ["sutcs", "Step until call stack changes"],
-        ["sutb", "Step until branch is taken"],
+        ["sutbt", "Step until branch is taken"],
+        ["suebb", "Step until end of basic block (branch)"],
         ["----[ Memory ]----", ""],
         ["nop", "patch memory address with NOP"],
         ["null", "patch memory address with NULL"],
@@ -2742,10 +2747,10 @@ Step until call stack changes.
             break
 
 
-def cmd_sutb(debugger, command, result, dict):
-    """Step until branch is taken. Use \'sutb help\' for more information."""
+def cmd_sutbt(debugger, command, result, dict):
+    """Step until branch is taken. Use \'sutbt help\' for more information."""
     help = """
-Step until branch is taken.
+Step until branch is taken. This will step instructions one-by-one until the flow of PC is interrupted.
 """
 
     cmd = command.split()
@@ -2776,6 +2781,50 @@ Step until branch is taken.
             break
 
         next_pc = new_pc + get_inst_size(new_pc)
+
+
+def cmd_suebb(debugger, command, result, dict):
+    """Step until end of basic block. Use \'suebb help\' for more information."""
+    help = """
+Step until end of basic block, i.e. until a branch instruction is encountered.
+"""
+
+    cmd = command.split()
+    if len(cmd) != 0 and cmd[0] == "help":
+        print(help)
+        return
+
+    debugger.SetAsync(False)
+
+    target = get_target()
+    thread = get_process().selected_thread
+
+    # detect control flow instructions, either by mnemonic, or by referenced registers
+    # we will detect branching, call/ret by mnemonic, but also stop if any instruction operands include PC
+
+    # step one by one until we hit a control flow instruction
+    while True:
+        thread.StepInstruction(False)
+        frame = thread.GetFrameAtIndex(0)
+        pc = get_current_pc()
+        insn = get_instruction(pc)
+
+        # check if the instruction is a control flow instruction
+        does_branch = insn.DoesBranch()
+        controlflow_kind = insn.GetControlFlowKind(target)
+        is_controlflow_insn = does_branch or controlflow_kind not in [
+            lldb.eInstructionControlFlowKindOther,
+            lldb.eInstructionControlFlowKindUnknown,
+        ]
+
+        if is_controlflow_insn:
+            print(
+                COLOR_LOGINFO
+                + f"[+] Control flow instruction detected at 0x{pc:x} (does_branch={does_branch}, controlflow_kind={controlflow_kind})"
+                + RESET
+            )
+            result.PutCString("Control flow instruction detected\n")
+            break
 
 
 # Temporarily breakpoint next instruction - this is useful to skip loops (don't want to use stepo for this purpose)
