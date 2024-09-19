@@ -4,17 +4,17 @@
 | | | . | . | |   | |  _|
 |_|_|___|___|_|_|_|_|_|
 
-lldbinit - redthing1's remix
+lrt - redthing1's remix of lldbinit
 
 Upstream: https://github.com/gdbinit/lldbinit
 
-To list all implemented commands use 'lldbinitcmds' command.
+To list all implemented commands use 'lrtcmds' command.
 
 How to install it:
 ------------------
 
 $ cp lldbinit.py ~
-$ echo "command script import  ~/lldbinit.py" >>$HOME/.lldbinit
+$ echo "command script import ~/lldbinit.py" >> $HOME/.lldbinit
 
 """
 
@@ -378,14 +378,14 @@ def __lldb_init_module(debugger, internal_dict):
                 )
             )
             print(
-                "[!] lldbinit is best experienced with a terminal size at least {}x{}\033[0m".format(
+                "[!] lrt is best experienced with a terminal size at least {}x{}\033[0m".format(
                     MIN_COLUMNS, MIN_ROWS
                 )
             )
     except Exception as e:
         print("\033[1m\033[31m[-] failed to find out terminal size.")
         print(
-            "[!] lldbinit is best experienced with a terminal size at least {}x{}\033[0m".format(
+            "[!] lrt is best experienced with a terminal size at least {}x{}\033[0m".format(
                 MIN_COLUMNS, MIN_ROWS
             )
         )
@@ -416,15 +416,15 @@ def __lldb_init_module(debugger, internal_dict):
 
     # the hook that makes everything possible :-)
     ci.HandleCommand(
-        "command script add -h '(lrt)' -f lldbinit.HandleProcessLaunchHook HandleProcessLaunchHook",
+        "command script add -h '(lrt)' -f lrt.HandleProcessLaunchHook HandleProcessLaunchHook",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) The main lldbinit hook.' -f lldbinit.HandleHookStopOnTarget HandleHookStopOnTarget",
+        "command script add -h '(lrt) The main lrt hook.' -f lrt.HandleHookStopOnTarget HandleHookStopOnTarget",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Display the current disassembly/CPU context.' -f lldbinit.HandleHookStopOnTarget context",
+        "command script add -h '(lrt) Display the current disassembly/CPU context.' -f lrt.HandleHookStopOnTarget context",
         res,
     )
     ci.HandleCommand(
@@ -433,87 +433,87 @@ def __lldb_init_module(debugger, internal_dict):
     )
     # commands
     ci.HandleCommand(
-        "command script add -h '(lrt) Print list of available commands.' -f lldbinit.cmd_lldbinitcmds lldbinitcmds",
+        "command script add -h '(lrt) Print list of available commands.' -f lrt.cmd_lrtcmds lrtcmds",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Connect to debugserver running on iPhone.' -f lldbinit.cmd_IphoneConnect iphone",
+        "command script add -h '(lrt) Connect to debugserver running on iPhone.' -f lrt.cmd_IphoneConnect iphone",
         res,
     )
     #
     # comments commands
     #
     ci.HandleCommand(
-        "command script add -h '(lrt) Add disassembly comment.' -f lldbinit.cmd_addcomment acm",
+        "command script add -h '(lrt) Add disassembly comment.' -f lrt.cmd_addcomment acm",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Remove disassembly comment.' -f lldbinit.cmd_delcomment dcm",
+        "command script add -h '(lrt) Remove disassembly comment.' -f lrt.cmd_delcomment dcm",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) List disassembly comments.' -f lldbinit.cmd_listcomments lcm",
+        "command script add -h '(lrt) List disassembly comments.' -f lrt.cmd_listcomments lcm",
         res,
     )
 
     # save session, restore session, list session commands
     ci.HandleCommand(
-        "command script add -h '(lrt) Save breakpoint session.' -f lldbinit.cmd_save_session ss",
+        "command script add -h '(lrt) Save breakpoint session.' -f lrt.cmd_save_session ss",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Restore breakpoint session.' -f lldbinit.cmd_restore_session rs",
+        "command script add -h '(lrt) Restore breakpoint session.' -f lrt.cmd_restore_session rs",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) List breakpoint sessions.' -f lldbinit.cmd_list_sessions ls",
+        "command script add -h '(lrt) List breakpoint sessions.' -f lrt.cmd_list_sessions ls",
         res,
     )
     #
     # dump memory commands
     #
     ci.HandleCommand(
-        "command script add -h '(lrt) Memory hex dump in byte format.' -f lldbinit.cmd_db db",
+        "command script add -h '(lrt) Memory hex dump in byte format.' -f lrt.cmd_db db",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Memory hex dump in word format.' -f lldbinit.cmd_dw dw",
+        "command script add -h '(lrt) Memory hex dump in word format.' -f lrt.cmd_dw dw",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Memory hex dump in double word format.' -f lldbinit.cmd_dd dd",
+        "command script add -h '(lrt) Memory hex dump in double word format.' -f lrt.cmd_dd dd",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Memory hex dump in quad word format.' -f lldbinit.cmd_dq dq",
+        "command script add -h '(lrt) Memory hex dump in quad word format.' -f lrt.cmd_dq dq",
         res,
     )
     # XXX: fix help
     ci.HandleCommand(
-        "command script add -h '(lrt) Disassemble instructions at address.' -f lldbinit.cmd_DumpInstructions u",
+        "command script add -h '(lrt) Disassemble instructions at address.' -f lrt.cmd_DumpInstructions u",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Memory search.' -f lldbinit.cmd_findmem findmem",
+        "command script add -h '(lrt) Memory search.' -f lrt.cmd_findmem findmem",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Display process memory regions.' -f lldbinit.cmd_showregions showregions",
+        "command script add -h '(lrt) Display process memory regions.' -f lrt.cmd_showregions showregions",
         res,
     )
     #
     # Settings related commands
     #
     ci.HandleCommand(
-        "command script add -h '(lrt) Configure lldb and lldbinit options.' -f lldbinit.cmd_enable enable",
+        "command script add -h '(lrt) Configure lldb and lrt options.' -f lrt.cmd_enable enable",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Configure lldb and lldbinit options.' -f lldbinit.cmd_disable disable",
+        "command script add -h '(lrt) Configure lldb and lrt options.' -f lrt.cmd_disable disable",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Set number of instruction lines in code window.' -f lldbinit.cmd_contextcodesize contextcodesize",
+        "command script add -h '(lrt) Set number of instruction lines in code window.' -f lrt.cmd_contextcodesize contextcodesize",
         res,
     )
     # a few settings aliases
@@ -542,61 +542,61 @@ def __lldb_init_module(debugger, internal_dict):
     # ci.HandleCommand("command unalias b", res)
     # software breakpoints
     ci.HandleCommand(
-        "command script add -h '(lrt) Set a software breakpoint.' -f lldbinit.cmd_bp bb",
+        "command script add -h '(lrt) Set a software breakpoint.' -f lrt.cmd_bp bb",
         res,
     )
     # alias "bp" command that exists in gdbinit
     ci.HandleCommand("command alias -h '(lrt) Alias to b.' -- bp b", res)
     ci.HandleCommand(
-        "command script add -h '(lrt) Set a temporary software breakpoint.' -f lldbinit.cmd_bpt bpt",
+        "command script add -h '(lrt) Set a temporary software breakpoint.' -f lrt.cmd_bpt bpt",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Set a temporary breakpoint on next instruction.' -f lldbinit.cmd_bpn bpn",
+        "command script add -h '(lrt) Set a temporary breakpoint on next instruction.' -f lrt.cmd_bpn bpn",
         res,
     )
     # hardware breakpoints
     ci.HandleCommand(
-        "command script add -h '(lrt) Set an hardware breakpoint.' -f lldbinit.cmd_bh bh",
+        "command script add -h '(lrt) Set an hardware breakpoint.' -f lrt.cmd_bh bh",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Set a temporary hardware breakpoint.' -f lldbinit.cmd_bht bht",
+        "command script add -h '(lrt) Set a temporary hardware breakpoint.' -f lrt.cmd_bht bht",
         res,
     )
     # module breakpoints
     ci.HandleCommand(
-        "command script add -h '(lrt) Breakpoint on module load.' -f lldbinit.cmd_bm bm",
+        "command script add -h '(lrt) Breakpoint on module load.' -f lrt.cmd_bm bm",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Clear all module load breakpoints.' -f lldbinit.cmd_bmc bmc",
+        "command script add -h '(lrt) Clear all module load breakpoints.' -f lrt.cmd_bmc bmc",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) List all on module load breakpoints.' -f lldbinit.cmd_bml bml",
+        "command script add -h '(lrt) List all on module load breakpoints.' -f lrt.cmd_bml bml",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Enable anti-anti-debugging measures.' -f lldbinit.cmd_antidebug antidebug",
+        "command script add -h '(lrt) Enable anti-anti-debugging measures.' -f lrt.cmd_antidebug antidebug",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Print all images available at gdb_image_notifier() breakpoint.' -f lldbinit.cmd_print_notifier_images print_images",
+        "command script add -h '(lrt) Print all images available at gdb_image_notifier() breakpoint.' -f lrt.cmd_print_notifier_images print_images",
         res,
     )
     # disable a breakpoint or all
     ci.HandleCommand(
-        "command script add -h '(lrt) Disable a breakpoint.' -f lldbinit.cmd_bpd bpd",
+        "command script add -h '(lrt) Disable a breakpoint.' -f lrt.cmd_bpd bpd",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Disable all breakpoints.' -f lldbinit.cmd_bpda bpda",
+        "command script add -h '(lrt) Disable all breakpoints.' -f lrt.cmd_bpda bpda",
         res,
     )
     # clear a breakpoint or all
     ci.HandleCommand(
-        "command script add -h '(lrt) Clear a breakpoint.' -f lldbinit.cmd_bpc bpc",
+        "command script add -h '(lrt) Clear a breakpoint.' -f lrt.cmd_bpc bpc",
         res,
     )
     ci.HandleCommand(
@@ -605,106 +605,106 @@ def __lldb_init_module(debugger, internal_dict):
     )
     # enable a breakpoint or all
     ci.HandleCommand(
-        "command script add -h '(lrt) Enable a breakpoint.' -f lldbinit.cmd_bpe bpe",
+        "command script add -h '(lrt) Enable a breakpoint.' -f lrt.cmd_bpe bpe",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Enable all breakpoints.' -f lldbinit.cmd_bpea bpea",
+        "command script add -h '(lrt) Enable all breakpoints.' -f lrt.cmd_bpea bpea",
         res,
     )
     # commands to set temporary int3 patches and restore original bytes
     ci.HandleCommand(
-        "command script add -h '(lrt) Patch memory address with INT3.' -f lldbinit.cmd_int3 int3",
+        "command script add -h '(lrt) Patch memory address with INT3.' -f lrt.cmd_int3 int3",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Restore original byte at address patched with INT3.' -f lldbinit.cmd_rint3 rint3",
+        "command script add -h '(lrt) Restore original byte at address patched with INT3.' -f lrt.cmd_rint3 rint3",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) List all INT3 patched addresses.' -f lldbinit.cmd_listint3 listint3",
+        "command script add -h '(lrt) List all INT3 patched addresses.' -f lrt.cmd_listint3 listint3",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Patch memory address with NOP.' -f lldbinit.cmd_nop nop",
+        "command script add -h '(lrt) Patch memory address with NOP.' -f lrt.cmd_nop nop",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Patch memory address with NULL.' -f lldbinit.cmd_null null",
+        "command script add -h '(lrt) Patch memory address with NULL.' -f lrt.cmd_null null",
         res,
     )
     # change eflags commands
     ci.HandleCommand(
-        "command script add -h '(lrt) Change adjust CPU flag.' -f lldbinit.cmd_cfa cfa",
+        "command script add -h '(lrt) Change adjust CPU flag.' -f lrt.cmd_cfa cfa",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change carry CPU flag.' -f lldbinit.cmd_cfc cfc",
+        "command script add -h '(lrt) Change carry CPU flag.' -f lrt.cmd_cfc cfc",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change direction CPU flag.' -f lldbinit.cmd_cfd cfd",
+        "command script add -h '(lrt) Change direction CPU flag.' -f lrt.cmd_cfd cfd",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change interrupt CPU flag.' -f lldbinit.cmd_cfi cfi",
+        "command script add -h '(lrt) Change interrupt CPU flag.' -f lrt.cmd_cfi cfi",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change overflow CPU flag.' -f lldbinit.cmd_cfo cfo",
+        "command script add -h '(lrt) Change overflow CPU flag.' -f lrt.cmd_cfo cfo",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change parity CPU flag.' -f lldbinit.cmd_cfp cfp",
+        "command script add -h '(lrt) Change parity CPU flag.' -f lrt.cmd_cfp cfp",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change sign CPU flag.' -f lldbinit.cmd_cfs cfs",
+        "command script add -h '(lrt) Change sign CPU flag.' -f lrt.cmd_cfs cfs",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change trap CPU flag.' -f lldbinit.cmd_cft cft",
+        "command script add -h '(lrt) Change trap CPU flag.' -f lrt.cmd_cft cft",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change zero CPU flag.' -f lldbinit.cmd_cfz cfz",
+        "command script add -h '(lrt) Change zero CPU flag.' -f lrt.cmd_cfz cfz",
         res,
     )
     # change NZCV flags - exclusive commands to AArch64 (Z, C are common)
     ci.HandleCommand(
-        "command script add -h '(lrt) Change negative CPU flag.' -f lldbinit.cmd_cfn cfn",
+        "command script add -h '(lrt) Change negative CPU flag.' -f lrt.cmd_cfn cfn",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Change overflow CPU flag.' -f lldbinit.cmd_cfv cfv",
+        "command script add -h '(lrt) Change overflow CPU flag.' -f lrt.cmd_cfv cfv",
         res,
     )
     # skip/step current instruction commands
     ci.HandleCommand(
-        "command script add -h '(lrt) Skip current instruction.' -f lldbinit.cmd_skip skip",
+        "command script add -h '(lrt) Skip current instruction.' -f lrt.cmd_skip skip",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Step over calls and loop instructions.' -f lldbinit.cmd_stepo stepo",
+        "command script add -h '(lrt) Step over calls and loop instructions.' -f lrt.cmd_stepo stepo",
         res,
     )
     # cracking friends
     ci.HandleCommand(
-        "command script add -h '(lrt) Return from current function.' -f lldbinit.cmd_crack crack",
+        "command script add -h '(lrt) Return from current function.' -f lrt.cmd_crack crack",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Set a breakpoint and return from that function.' -f lldbinit.cmd_crackcmd crackcmd",
+        "command script add -h '(lrt) Set a breakpoint and return from that function.' -f lrt.cmd_crackcmd crackcmd",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Set a breakpoint and set a register value. doesn't return from function.' -f lldbinit.cmd_crackcmd_noret crackcmd_noret",
+        "command script add -h '(lrt) Set a breakpoint and set a register value. doesn't return from function.' -f lrt.cmd_crackcmd_noret crackcmd_noret",
         res,
     )
     # alias for existing breakpoint commands
     # list all breakpoints
     ci.HandleCommand(
-        "command script add -h '(lrt) List breakpoints.' -f lldbinit.cmd_bpl bpl",
+        "command script add -h '(lrt) List breakpoints.' -f lrt.cmd_bpl bpl",
         res,
     )
     # to set breakpoint commands - I hate typing too much
@@ -717,7 +717,7 @@ def __lldb_init_module(debugger, internal_dict):
     # ci.HandleCommand("command unalias r", res)
     # ci.HandleCommand("command unalias run", res)
     ci.HandleCommand(
-        "command script add -h '(lrt) Start the target and stop at entrypoint.' -f lldbinit.cmd_run rr",
+        "command script add -h '(lrt) Start the target and stop at entrypoint.' -f lrt.cmd_run rr",
         res,
     )
     # ci.HandleCommand("command alias -h '(lrt) Start the target and stop at entrypoint.' -- run r", res)
@@ -728,24 +728,24 @@ def __lldb_init_module(debugger, internal_dict):
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Show otool output of Mach-O load commands.' -f lldbinit.cmd_show_loadcmds show_loadcmds",
+        "command script add -h '(lrt) Show otool output of Mach-O load commands.' -f lrt.cmd_show_loadcmds show_loadcmds",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Show otool output of Mach-O header.' -f lldbinit.cmd_show_header show_header",
+        "command script add -h '(lrt) Show otool output of Mach-O header.' -f lrt.cmd_show_header show_header",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Test function - do not use :-).' -f lldbinit.cmd_tester tester",
+        "command script add -h '(lrt) Test function - do not use :-).' -f lrt.cmd_tester tester",
         res,
     )
     ci.HandleCommand(
-        "command script add -h '(lrt) Set start address to display on data window.' -f lldbinit.cmd_datawin datawin",
+        "command script add -h '(lrt) Set start address to display on data window.' -f lrt.cmd_datawin datawin",
         res,
     )
     # used mostly for aliases below but can be called as other commands
     ci.HandleCommand(
-        "command script add -h '(lrt) Update register function to be used by all the register alias.' -f lldbinit.cmd_update_register update_register",
+        "command script add -h '(lrt) Update register function to be used by all the register alias.' -f lrt.cmd_update_register update_register",
         res,
     )
     # shortcut command to modify registers content
@@ -975,23 +975,23 @@ def __lldb_init_module(debugger, internal_dict):
         )
     if CONFIG_KEYSTONE_AVAILABLE == 1:
         ci.HandleCommand(
-            "command script add -h '(lrt) 32 bit x86 interactive Keystone based assembler.' -f lldbinit.cmd_asm32 asm32",
+            "command script add -h '(lrt) 32 bit x86 interactive Keystone based assembler.' -f lrt.cmd_asm32 asm32",
             res,
         )
         ci.HandleCommand(
-            "command script add -h '(lrt) 64 bit x86 interactive Keystone based assembler.' -f lldbinit.cmd_asm64 asm64",
+            "command script add -h '(lrt) 64 bit x86 interactive Keystone based assembler.' -f lrt.cmd_asm64 asm64",
             res,
         )
         ci.HandleCommand(
-            "command script add -h '(lrt) 32 bit ARM interactive Keystone based assembler.' -f lldbinit.cmd_arm32 arm32",
+            "command script add -h '(lrt) 32 bit ARM interactive Keystone based assembler.' -f lrt.cmd_arm32 arm32",
             res,
         )
         ci.HandleCommand(
-            "command script add -h '(lrt) 64 bit ARM interactive Keystone based assembler.' -f lldbinit.cmd_arm64 arm64",
+            "command script add -h '(lrt) 64 bit ARM interactive Keystone based assembler.' -f lrt.cmd_arm64 arm64",
             res,
         )
         ci.HandleCommand(
-            "command script add -h '(lrt) 32 bit ARM Thumb interactive Keystone based assembler.' -f lldbinit.cmd_armthumb armthumb",
+            "command script add -h '(lrt) 32 bit ARM Thumb interactive Keystone based assembler.' -f lrt.cmd_armthumb armthumb",
             res,
         )
     # add the hook - we don't need to wait for a target to be loaded
@@ -1010,12 +1010,12 @@ def __lldb_init_module(debugger, internal_dict):
         print("[-] error: failed to list stop hooks and our hook isn't loaded")
 
     ci.HandleCommand(
-        "command script add -h '(lrt) Display lldbinit banner.' --function lldbinit.cmd_banner banner",
+        "command script add -h '(lrt) Display lrt banner.' --function lrt.cmd_banner banner",
         res,
     )
     # custom commands
     ci.HandleCommand(
-        "command script add -h '(lrt) Fix return breakpoint.' -f lldbinit.cmd_fixret fixret",
+        "command script add -h '(lrt) Fix return breakpoint.' -f lrt.cmd_fixret fixret",
         res,
     )
     # displays the version banner when lldb is loaded
@@ -1056,20 +1056,20 @@ def get_lldb_version(debugger):
 def cmd_banner(debugger, command, result, dict):
     lldbver = debugger.GetVersionString().split("\n")[0]
     global LLDB_VARIANT, LLDB_MAJOR, LLDB_MINOR
-    # print(GREEN + "[+] Loaded lldbinit version " + VERSION + "." + BUILD + " @ " + lldbver + RESET)
+    # print(GREEN + "[+] Loaded lrt version " + VERSION + "." + BUILD + " @ " + lldbver + RESET)
     print(
-        f"{GREEN}[+] lldbinit v{VERSION}.{BUILD} @ lldb-{LLDB_MAJOR}.{LLDB_MINOR} ({LLDB_VARIANT}){RESET}"
+        f"{GREEN}[+] lrt v{VERSION}.{BUILD} @ lldb-{LLDB_MAJOR}.{LLDB_MINOR} ({LLDB_VARIANT}){RESET}"
     )
 
 
-def cmd_lldbinitcmds(debugger, command, result, dict):
-    """Display all available lldbinit commands."""
+def cmd_lrtcmds(debugger, command, result, dict):
+    """Display all available lrt commands."""
 
     help_table = [
-        ["lldbinitcmds", "this command"],
+        ["lrtcmds", "this command"],
         ["----[ Settings ]----", ""],
-        ["enable", "configure lldb and lldbinit options"],
-        ["disable", "configure lldb and lldbinit options"],
+        ["enable", "configure lldb and lrt options"],
+        ["disable", "configure lldb and lrt options"],
         ["contextcodesize", "set number of instruction lines in code window"],
         ["enablesolib/disablesolib", "enable/disable the stop on library load events"],
         ["enableaslr/disableaslr", "enable/disable process ASLR"],
@@ -1145,7 +1145,7 @@ def cmd_lldbinitcmds(debugger, command, result, dict):
         ["arm32/arm64/armthumb", "ARM assembler using keystone"],
     ]
 
-    print("lldbinit available commands:")
+    print("lrt available commands:")
 
     for row in help_table:
         if not row[1]:
@@ -1168,9 +1168,9 @@ def cmd_tester(debugger, command, result, dict):
 
 
 def cmd_enable(debugger, command, result, dict):
-    """Enable certain lldb and lldbinit options. Use \'enable help\' for more information."""
+    """Enable certain lldb and lrt options. Use \'enable help\' for more information."""
     help = """
-Enable certain lldb and lldbinit configuration options.
+Enable certain lldb and lrt configuration options.
 
 Syntax: enable <setting>
 
@@ -1222,9 +1222,9 @@ Available settings:
 
 
 def cmd_disable(debugger, command, result, dict):
-    """Disable certain lldb and lldbinit options. Use \'disable help\' for more information."""
+    """Disable certain lldb and lrt options. Use \'disable help\' for more information."""
     help = """
-Disable certain lldb and lldbinit configuration options.
+Disable certain lldb and lrt configuration options.
 
 Syntax: disable <setting>
 
@@ -1429,7 +1429,7 @@ def antidebug_callback_step1(frame, bp_loc, dict):
                 # this will generate a traceback on newer lldb versions
                 # it seems we can't set another callback while inside a callback
                 # lldb regressions ftw...
-                nextbp.SetScriptCallbackFunction("lldbinit.antidebug_callback_step2")
+                nextbp.SetScriptCallbackFunction("lrt.antidebug_callback_step2")
     # everything automatic here so continue in any case
     get_process().Continue()
 
@@ -1508,24 +1508,24 @@ Syntax: antidebug
             bp = target.BreakpointCreateByName(
                 "sysctl", "/usr/lib/system/libsystem_c.dylib"
             )
-            bp.SetScriptCallbackFunction("lldbinit.antidebug_callback_step1")
+            bp.SetScriptCallbackFunction("lrt.antidebug_callback_step1")
             # PT_DENY_ATTACH
             bp2 = target.BreakpointCreateByName(
                 "ptrace", "/usr/lib/system/libsystem_kernel.dylib"
             )
-            bp2.SetScriptCallbackFunction("lldbinit.antidebug_ptrace_callback")
+            bp2.SetScriptCallbackFunction("lrt.antidebug_ptrace_callback")
             # mach exception ports
             bp3 = target.BreakpointCreateByName(
                 "task_get_exception_ports", "/usr/lib/system/libsystem_kernel.dylib"
             )
             bp3.SetScriptCallbackFunction(
-                "lldbinit.antidebug_task_exception_ports_callback"
+                "lrt.antidebug_task_exception_ports_callback"
             )
             bp4 = target.BreakpointCreateByName(
                 "task_set_exception_ports", "/usr/lib/system/libsystem_kernel.dylib"
             )
             bp4.SetScriptCallbackFunction(
-                "lldbinit.antidebug_task_exception_ports_callback"
+                "lrt.antidebug_task_exception_ports_callback"
             )
             print("[+] Enabled anti-anti-debugging measures")
             break
@@ -1719,7 +1719,7 @@ bm /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation
                     # append the module name to the list if set
                     if len(cmd) > 0:
                         breakpoint.SetScriptCallbackFunction(
-                            "lldbinit.module_breakpoint_callback"
+                            "lrt.module_breakpoint_callback"
                         )
                         print(
                             "[+] Added '{}' to breakpoint on module load.".format(
@@ -2841,7 +2841,7 @@ Sets rax/eax/x0 to return value and returns immediately from current function wh
     # we want a global breakpoint
     breakpoint = target.BreakpointCreateByAddress(address)
     # when the breakpoint is hit we get this callback executed
-    breakpoint.SetScriptCallbackFunction("lldbinit.crackcmd_callback")
+    breakpoint.SetScriptCallbackFunction("lrt.crackcmd_callback")
 
 
 def crackcmd_callback(frame, bp_loc, internal_dict):
@@ -3007,7 +3007,7 @@ Syntax: crackcmd_noret <address> <register> <value>
     # we want a global breakpoint
     breakpoint = target.BreakpointCreateByAddress(address)
     # when the breakpoint is hit we get this callback executed
-    breakpoint.SetScriptCallbackFunction("lldbinit.crackcmd_noret_callback")
+    breakpoint.SetScriptCallbackFunction("lrt.crackcmd_noret_callback")
 
 
 def crackcmd_noret_callback(frame, bp_loc, internal_dict):
@@ -6567,7 +6567,7 @@ Replaces the original r/run alias.
 
 
 # ------------------------------------------------------------
-# The heart of lldbinit - when lldb stop this is where we land
+# The heart of lrt - when lldb stop this is where we land
 # ------------------------------------------------------------
 
 

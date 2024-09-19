@@ -1,4 +1,6 @@
 
-# lldbinit
+# redthing1's lldbinit
 
-an init script for lldb adding a bunch of commands. it is my fork of [lldbinit](https://github.com/gdbinit/lldbinit). thanks to the original code and contributors.
+this is **lrt**, a custom init script for lldb.
+
+it is **heavily** based on [lldbinit](https://github.com/gdbinit/lldbinit). thanks to the original code and contributors.
