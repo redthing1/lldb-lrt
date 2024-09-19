@@ -180,6 +180,7 @@ if CONFIG_APPEARANCE == "light":
     COLOR_HEXDUMP_DATA = BLACK
     COLOR_HEXDUMP_ASCII = BLACK
     COLOR_COMMENT = GREEN
+    COLOR_LOGINFO = BRIGHT_BLUE
 elif CONFIG_APPEARANCE == "dark":
     COLOR_REGVAL = WHITE
     COLOR_REGNAME = GREEN
@@ -197,6 +198,7 @@ elif CONFIG_APPEARANCE == "dark":
     COLOR_HEXDUMP_DATA = WHITE
     COLOR_HEXDUMP_ASCII = WHITE
     COLOR_COMMENT = GREEN
+    COLOR_LOGINFO = GREEN
 elif CONFIG_APPEARANCE == "redthing1":
     COLOR_REGVAL = DIM + WHITE
     COLOR_REGNAME = GREEN
@@ -214,6 +216,7 @@ elif CONFIG_APPEARANCE == "redthing1":
     COLOR_HEXDUMP_DATA = WHITE
     COLOR_HEXDUMP_ASCII = WHITE
     COLOR_COMMENT = GREEN
+    COLOR_LOGINFO = BRIGHT_BLUE
 else:
     print("[-] Invalid CONFIG_APPEARANCE value.")
 
@@ -679,13 +682,17 @@ def __lldb_init_module(debugger, internal_dict):
         "command script add -h '(lrt) Change overflow CPU flag.' -f lrt.cmd_cfv cfv",
         res,
     )
-    # skip/step current instruction commands
+    # skipping/stepping current instruction commands
     ci.HandleCommand(
         "command script add -h '(lrt) Skip current instruction.' -f lrt.cmd_skip skip",
         res,
     )
     ci.HandleCommand(
         "command script add -h '(lrt) Step over calls and loop instructions.' -f lrt.cmd_stepo stepo",
+        res,
+    )
+    ci.HandleCommand(
+        "command script add -h '(lrt) Step until call stack changes.' -f lrt.cmd_stcs stcs",
         res,
     )
     # cracking friends
@@ -1110,6 +1117,7 @@ def cmd_lrtcmds(debugger, command, result, dict):
         ["----[ Stepping ]----", ""],
         ["skip", "skip current instruction"],
         ["stepo", "step over calls and loop instructions"],
+        ["stcs", "Step until call stack changes"],
         ["----[ Memory ]----", ""],
         ["nop", "patch memory address with NOP"],
         ["null", "patch memory address with NULL"],
@@ -1518,15 +1526,11 @@ Syntax: antidebug
             bp3 = target.BreakpointCreateByName(
                 "task_get_exception_ports", "/usr/lib/system/libsystem_kernel.dylib"
             )
-            bp3.SetScriptCallbackFunction(
-                "lrt.antidebug_task_exception_ports_callback"
-            )
+            bp3.SetScriptCallbackFunction("lrt.antidebug_task_exception_ports_callback")
             bp4 = target.BreakpointCreateByName(
                 "task_set_exception_ports", "/usr/lib/system/libsystem_kernel.dylib"
             )
-            bp4.SetScriptCallbackFunction(
-                "lrt.antidebug_task_exception_ports_callback"
-            )
+            bp4.SetScriptCallbackFunction("lrt.antidebug_task_exception_ports_callback")
             print("[+] Enabled anti-anti-debugging measures")
             break
 
@@ -2696,6 +2700,41 @@ Syntax: stepo
         target.GetProcess().Continue()
     else:
         get_process().selected_thread.StepInstruction(False)
+
+
+def cmd_stcs(debugger, command, result, dict):
+    """Step until call stack changes. Use \'stcs help\' for more information."""
+    help = """
+Step until call stack changes.
+"""
+
+    cmd = command.split()
+    if len(cmd) != 0 and cmd[0] == "help":
+        print(help)
+        return
+
+    debugger.SetAsync(False)
+
+    target = get_target()
+    thread = get_process().selected_thread
+
+    start_num_frames = thread.GetNumFrames()
+    if start_num_frames == 0:
+        result.PutCString("No frames available\n")
+        return
+
+    while True:
+        thread.StepInstruction(False)
+        new_frame_count = thread.GetNumFrames()
+        if new_frame_count != start_num_frames:
+            print(
+                COLOR_LOGINFO
+                + f"[+] Call stack depth: {start_num_frames} -> {new_frame_count}"
+                + RESET
+            )
+            result.PutCString("Call stack depth changed\n")
+
+            break
 
 
 # Temporarily breakpoint next instruction - this is useful to skip loops (don't want to use stepo for this purpose)
