@@ -1868,46 +1868,42 @@ Syntax: bpmnm <module> <mnemonic>
             start_addr == lldb.LLDB_INVALID_ADDRESS
             or end_addr == lldb.LLDB_INVALID_ADDRESS
         ):
-            # print(f"[-] Invalid address for symbol '{symbol_name}', skipping.")
             continue
 
-        # Initialize the address pointer
+        # Read instructions in chunks
+        chunk_size = 1024  # Adjust this value as needed
         addr = start_addr
-
         while addr < end_addr:
             sb_addr = lldb.SBAddress(addr, target)
-            instructions_mem = target.ReadInstructions(
-                sb_addr, 1
-            )  # Read one instruction
+            instructions_mem = target.ReadInstructions(sb_addr, chunk_size)
 
             if not instructions_mem.IsValid() or instructions_mem.GetSize() == 0:
-                addr += 1  # Move to the next byte if instruction read is invalid
+                addr += chunk_size
                 continue
 
-            inst = instructions_mem.GetInstructionAtIndex(0)
-            inst_mnemonic = inst.GetMnemonic(target).lower()
-
-            if inst_mnemonic == mnemonic:
+            for inst in instructions_mem:
                 inst_addr = inst.GetAddress().GetLoadAddress(target)
-                if inst_addr == lldb.LLDB_INVALID_ADDRESS:
-                    addr += 1
-                    continue  # Skip invalid addresses
+                if inst_addr >= end_addr:
+                    break
 
-                # Create a one-shot breakpoint at the instruction's address
-                bp = target.BreakpointCreateByAddress(inst_addr)
-                bp.SetOneShot(True)
-                bp.SetThreadID(thread_id)
-                n_bps += 1
+                inst_mnemonic = inst.GetMnemonic(target).lower()
 
-                # print(f"[*] Set one-shot breakpoint at {hex(inst_addr)} for mnemonic '{mnemonic}'.")
+                if inst_mnemonic == mnemonic:
+                    if inst_addr == lldb.LLDB_INVALID_ADDRESS:
+                        continue  # Skip invalid addresses
 
-            # Advance the address pointer by the size of the current instruction
-            inst_size = inst.GetByteSize()
-            if inst_size > 0:
-                addr += inst_size
-            else:
-                # If instruction size is zero, prevent infinite loop by moving to the next byte
-                addr += 1
+                    # Create a one-shot breakpoint at the instruction's address
+                    bp = target.BreakpointCreateByAddress(inst_addr)
+                    bp.SetOneShot(True)
+                    bp.SetThreadID(thread_id)
+                    n_bps += 1
+
+                # Update addr to the next instruction
+                addr = inst_addr + inst.GetByteSize()
+
+            # If we've reached or passed the end_addr, break out of the while loop
+            if addr >= end_addr:
+                break
 
     print(
         f"[+] Set {n_bps} breakpoint{'s' if n_bps != 1 else ''} on mnemonic '{mnemonic}' in module '{target_module_name}'."
