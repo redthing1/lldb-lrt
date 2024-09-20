@@ -1795,71 +1795,123 @@ Syntax: bml
 
 
 def cmd_bpmnm(debugger, command, result, dict):
-    """Set temporary breakpoint on all instructions in a module with a specific mnemonic. Use \'bpmnm help\' for more information."""
-    help = """
+    """
+    Set temporary breakpoint on all instructions in a module with a specific mnemonic.
+    Use 'bpmnm help' for more information.
+
+    Syntax: bpmnm <module> <mnemonic>
+    """
+    help_text = """
 Set temporary breakpoint on all instructions in a module with a specific mnemonic.
 
 Syntax: bpmnm <module> <mnemonic>
 """
-    cmd = command.split()
-    if len(cmd) != 2 or cmd[0] == "help":
-        print(help)
+    # Parse and validate command arguments
+    cmd = command.strip().split()
+    if len(cmd) != 2 or cmd[0].lower() == "help":
+        print(help_text)
         return
 
     target_module_name = cmd[0]
-    mnemonic = cmd[1]
+    mnemonic = cmd[1].lower()  # Convert to lowercase for case-insensitive comparison
     target_module = None
 
+    # Retrieve the current target
     target = get_target()
+    if not target:
+        print(f"{COLOR_LOGERROR}[-] error: No target found.{RESET}")
+        return
 
-    # find a matching module
-    for m in target.module_iter():
-        m_name = m.GetFileSpec().GetFilename()
-        if m_name == target_module_name:
-            target_module = m
+    # Find the matching module
+    for module in target.module_iter():
+        module_name = module.GetFileSpec().GetFilename()
+        if module_name.lower() == target_module_name.lower():
+            target_module = module
             break
 
     if target_module is None:
-        print(COLOR_LOGERROR + "[-] error: module not found." + RESET)
+        print(
+            f"{COLOR_LOGERROR}[-] error: Module '{target_module_name}' not found.{RESET}"
+        )
         return
 
-    # find all instructions with the mnemonic within the module (may be slow)
+    # Display search initiation message
     n_symbols = target_module.GetNumSymbols()
     print(
-        f"[+] Searching module {target_module} ({n_symbols} symbols) for mnemonic {mnemonic}"
+        f"[+] Searching module '{target_module_name}' ({n_symbols} symbols) for mnemonic '{mnemonic}'"
     )
 
     n_bps = 0
+
+    # Retrieve the current frame and thread information once
+    try:
+        frame = get_frame()
+        if frame is None:
+            raise Exception("No current frame available.")
+    except:
+        print(
+            f"{COLOR_LOGERROR}[-] error: No current frame available. Is the module loaded?{RESET}"
+        )
+        return
+
+    thread = frame.GetThread()
+    thread_id = thread.GetThreadID()
+
+    # Iterate over each symbol in the module
     for symbol in target_module:
-        # just iterate instructions one by one
         symbol_name = symbol.GetName()
         start_addr = symbol.GetStartAddress().GetLoadAddress(target)
         end_addr = symbol.GetEndAddress().GetLoadAddress(target)
-        
-        # # if the addresses are invalid, the module is not loaded yet?
-        # if start_addr == 0xFFFFFFFFFFFFFFFF:
-        #     print(f"[-] Invalid address for symbol {symbol_name}, module not loaded?")
-        #     break
 
-        # print(f"[+] Checking symbol {symbol_name} ({hex(start_addr)}-{hex(end_addr)})")
-        for addr in range(start_addr, end_addr):
-            # print(f"[+] Checking address {hex(addr)}")
-            instructions_mem = target.ReadInstructions(lldb.SBAddress(addr, target), 1)
-            if not instructions_mem.IsValid():
+        # Skip symbols with invalid addresses
+        if (
+            start_addr == lldb.LLDB_INVALID_ADDRESS
+            or end_addr == lldb.LLDB_INVALID_ADDRESS
+        ):
+            # print(f"[-] Invalid address for symbol '{symbol_name}', skipping.")
+            continue
+
+        # Initialize the address pointer
+        addr = start_addr
+
+        while addr < end_addr:
+            sb_addr = lldb.SBAddress(addr, target)
+            instructions_mem = target.ReadInstructions(
+                sb_addr, 1
+            )  # Read one instruction
+
+            if not instructions_mem.IsValid() or instructions_mem.GetSize() == 0:
+                addr += 1  # Move to the next byte if instruction read is invalid
                 continue
 
             inst = instructions_mem.GetInstructionAtIndex(0)
-            # print(f"[+] {hex(addr)}: {inst.GetMnemonic(target)}")
+            inst_mnemonic = inst.GetMnemonic(target).lower()
 
-            if inst.GetMnemonic(target) == mnemonic:
-                # print(f"[+] Found {mnemonic} at {hex(addr)}")
-                bp = target.BreakpointCreateByAddress(addr)
+            if inst_mnemonic == mnemonic:
+                inst_addr = inst.GetAddress().GetLoadAddress(target)
+                if inst_addr == lldb.LLDB_INVALID_ADDRESS:
+                    addr += 1
+                    continue  # Skip invalid addresses
+
+                # Create a one-shot breakpoint at the instruction's address
+                bp = target.BreakpointCreateByAddress(inst_addr)
                 bp.SetOneShot(True)
-                bp.SetThreadID(get_frame().GetThread().GetThreadID())
+                bp.SetThreadID(thread_id)
                 n_bps += 1
 
-    print(f"[+] Set {n_bps} breakpoints on {mnemonic} in {target_module_name}")
-    return
+                # print(f"[*] Set one-shot breakpoint at {hex(inst_addr)} for mnemonic '{mnemonic}'.")
+
+            # Advance the address pointer by the size of the current instruction
+            inst_size = inst.GetByteSize()
+            if inst_size > 0:
+                addr += inst_size
+            else:
+                # If instruction size is zero, prevent infinite loop by moving to the next byte
+                addr += 1
+
+    print(
+        f"[+] Set {n_bps} breakpoint{'s' if n_bps != 1 else ''} on mnemonic '{mnemonic}' in module '{target_module_name}'."
+    )
 
 
 def cmd_print_notifier_images(debugger, command, result, dict):
