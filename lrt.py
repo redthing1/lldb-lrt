@@ -1842,6 +1842,7 @@ Syntax: bpmnm <module> <mnemonic>
     )
 
     n_bps = 0
+    n_insn_searched = 0
 
     # Retrieve the current frame and thread information once
     try:
@@ -1881,6 +1882,8 @@ Syntax: bpmnm <module> <mnemonic>
                 addr += chunk_size
                 continue
 
+            n_insn_searched += instructions_mem.GetSize()
+
             for inst in instructions_mem:
                 inst_addr = inst.GetAddress().GetLoadAddress(target)
                 if inst_addr >= end_addr:
@@ -1906,7 +1909,7 @@ Syntax: bpmnm <module> <mnemonic>
                 break
 
     print(
-        f"[+] Set {n_bps} breakpoint{'s' if n_bps != 1 else ''} on mnemonic '{mnemonic}' in module '{target_module_name}'."
+        f"[+] Set {n_bps} breakpoint{'s' if n_bps != 1 else ''} on mnemonic '{mnemonic}' in module '{target_module_name}' (searched {n_insn_searched} instructions)"
     )
 
 
