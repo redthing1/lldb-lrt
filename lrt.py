@@ -181,6 +181,8 @@ if CONFIG_APPEARANCE == "light":
     COLOR_HEXDUMP_ASCII = BLACK
     COLOR_COMMENT = GREEN
     COLOR_LOGINFO = BRIGHT_BLUE
+    COLOR_LOGWARN = BRIGHT_YELLOW
+    COLOR_LOGERROR = BRIGHT_RED
 elif CONFIG_APPEARANCE == "dark":
     COLOR_REGVAL = WHITE
     COLOR_REGNAME = GREEN
@@ -199,6 +201,8 @@ elif CONFIG_APPEARANCE == "dark":
     COLOR_HEXDUMP_ASCII = WHITE
     COLOR_COMMENT = GREEN
     COLOR_LOGINFO = GREEN
+    COLOR_LOGWARN = YELLOW
+    COLOR_LOGERROR = RED
 elif CONFIG_APPEARANCE == "redthing1":
     COLOR_REGVAL = DIM + WHITE
     COLOR_REGNAME = GREEN
@@ -217,6 +221,8 @@ elif CONFIG_APPEARANCE == "redthing1":
     COLOR_HEXDUMP_ASCII = WHITE
     COLOR_COMMENT = GREEN
     COLOR_LOGINFO = BRIGHT_BLUE
+    COLOR_LOGWARN = BRIGHT_YELLOW
+    COLOR_LOGERROR = BRIGHT_RED
 else:
     print("[-] Invalid CONFIG_APPEARANCE value.")
 
@@ -578,6 +584,11 @@ def __lldb_init_module(debugger, internal_dict):
     )
     ci.HandleCommand(
         "command script add -h '(lrt) List all on module load breakpoints.' -f lrt.cmd_bml bml",
+        res,
+    )
+    # misc breakpoint commands
+    ci.HandleCommand(
+        "command script add -h '(lrt) Temporarily breakpoint all instructions with mnemonic.' -f lrt.cmd_bpmnm bpmnm",
         res,
     )
     ci.HandleCommand(
@@ -1110,6 +1121,7 @@ def cmd_lrtcmds(debugger, command, result, dict):
         ["bm", "breakpoint on module load"],
         ["bmc", "clear all module load breakpoints"],
         ["bml", "list all on module load breakpoints"],
+        ["bpmnm", "temporarily breakpoint all instructions with mnemonic"],
         ["break_entrypoint", "launch target and stop at entrypoint"],
         ["int3", "patch memory address with INT3"],
         ["rint3", "restore original byte at address patched with INT3"],
@@ -1780,6 +1792,74 @@ Syntax: bml
     print("Breakpoints on modules:")
     for i in modules_list:
         print("- " + i)
+
+
+def cmd_bpmnm(debugger, command, result, dict):
+    """Set temporary breakpoint on all instructions in a module with a specific mnemonic. Use \'bpmnm help\' for more information."""
+    help = """
+Set temporary breakpoint on all instructions in a module with a specific mnemonic.
+
+Syntax: bpmnm <module> <mnemonic>
+"""
+    cmd = command.split()
+    if len(cmd) != 2 or cmd[0] == "help":
+        print(help)
+        return
+
+    target_module_name = cmd[0]
+    mnemonic = cmd[1]
+    target_module = None
+
+    target = get_target()
+
+    # find a matching module
+    for m in target.module_iter():
+        m_name = m.GetFileSpec().GetFilename()
+        if m_name == target_module_name:
+            target_module = m
+            break
+
+    if target_module is None:
+        print(COLOR_LOGERROR + "[-] error: module not found." + RESET)
+        return
+
+    # find all instructions with the mnemonic within the module (may be slow)
+    n_symbols = target_module.GetNumSymbols()
+    print(
+        f"[+] Searching module {target_module} ({n_symbols} symbols) for mnemonic {mnemonic}"
+    )
+
+    n_bps = 0
+    for symbol in target_module:
+        # just iterate instructions one by one
+        symbol_name = symbol.GetName()
+        start_addr = symbol.GetStartAddress().GetLoadAddress(target)
+        end_addr = symbol.GetEndAddress().GetLoadAddress(target)
+        
+        # # if the addresses are invalid, the module is not loaded yet?
+        # if start_addr == 0xFFFFFFFFFFFFFFFF:
+        #     print(f"[-] Invalid address for symbol {symbol_name}, module not loaded?")
+        #     break
+
+        # print(f"[+] Checking symbol {symbol_name} ({hex(start_addr)}-{hex(end_addr)})")
+        for addr in range(start_addr, end_addr):
+            # print(f"[+] Checking address {hex(addr)}")
+            instructions_mem = target.ReadInstructions(lldb.SBAddress(addr, target), 1)
+            if not instructions_mem.IsValid():
+                continue
+
+            inst = instructions_mem.GetInstructionAtIndex(0)
+            # print(f"[+] {hex(addr)}: {inst.GetMnemonic(target)}")
+
+            if inst.GetMnemonic(target) == mnemonic:
+                # print(f"[+] Found {mnemonic} at {hex(addr)}")
+                bp = target.BreakpointCreateByAddress(addr)
+                bp.SetOneShot(True)
+                bp.SetThreadID(get_frame().GetThread().GetThreadID())
+                n_bps += 1
+
+    print(f"[+] Set {n_bps} breakpoints on {mnemonic} in {target_module_name}")
+    return
 
 
 def cmd_print_notifier_images(debugger, command, result, dict):
