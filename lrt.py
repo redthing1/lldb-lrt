@@ -703,6 +703,10 @@ def __lldb_init_module(debugger, internal_dict):
         "command script add -h '(lrt) Step until end of basic block.' -f lrt.cmd_suebb suebb",
         res,
     )
+    ci.HandleCommand(
+        "command script add -h '(lrt) Step until instruction mnemonic.' -f lrt.cmd_sumnm sumnm",
+        res,
+    )
     # cracking friends
     ci.HandleCommand(
         "command script add -h '(lrt) Return from current function.' -f lrt.cmd_crack crack",
@@ -1128,6 +1132,7 @@ def cmd_lrtcmds(debugger, command, result, dict):
         ["sutcs", "Step until call stack changes"],
         ["sutbt", "Step until branch is taken"],
         ["suebb", "Step until end of basic block (branch)"],
+        ["sumnm", "Step until instruction mnemonic"],
         ["----[ Memory ]----", ""],
         ["nop", "patch memory address with NOP"],
         ["null", "patch memory address with NULL"],
@@ -2824,6 +2829,40 @@ Step until end of basic block, i.e. until a branch instruction is encountered.
                 + RESET
             )
             result.PutCString("Control flow instruction detected\n")
+            break
+
+
+def cmd_sumnm(debugger, command, result, dict):
+    """Step until matching instruction mnemonic. Use \'sumnm help\' for more information."""
+    help = """
+Step until matching instruction mnemonic is encountered.
+"""
+
+    cmd = command.split()
+    if len(cmd) != 1 and cmd[0] == "help":
+        print(help)
+        return
+
+    target_mnemonic = cmd[0]
+
+    debugger.SetAsync(False)
+
+    target = get_target()
+    thread = get_process().selected_thread
+
+    while True:
+        thread.StepInstruction(False)
+        pc = get_current_pc()
+        insn = get_instruction(pc)
+        mnemonic = insn.GetMnemonic(target)
+
+        if mnemonic == target_mnemonic:
+            print(
+                COLOR_LOGINFO
+                + f"[+] Matched instruction mnemonic '{target_mnemonic}' at 0x{pc:x}"
+                + RESET
+            )
+            result.PutCString(f"Matched instruction mnemonic '{target_mnemonic}'\n")
             break
 
 
