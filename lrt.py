@@ -7377,18 +7377,31 @@ def HandleHookStopOnTarget(debugger, command, result, dict):
     global CONFIG_DISPLAY_DATA_WINDOW
     global POINTER_SIZE
 
-    # Don't run in Xcode
-    if os.getenv("PATH", "").startswith("/Applications/Xcode"): return
+    # blacklist
+    path_blacklist = [
+        "/Applications/Xcode"
+    ]
+    # don't run in blacklisted paths
+    for path in path_blacklist:
+        if os.getenv("PATH", "").startswith(path): return
 
     target = get_target()
-    if not target or not target.IsValid(): return # No target, nothing to show
+    # if not target or not target.IsValid(): return # No target, nothing to show
+    if not target or not target.IsValid():
+        err_msg("No valid target found. Please start the target first.")
 
     process = target.GetProcess()
-    if not process or not process.IsValid(): return # No process, nothing to show
+    # if not process or not process.IsValid(): return # No process, nothing to show
+    if not process or not process.IsValid():
+        err_msg("No valid process found. Please start the target first.")
+        return
 
     # Avoid running if process is exited or not stopped properly
     state = process.GetState()
-    if state in (lldb.eStateExited, lldb.eStateDetached, lldb.eStateInvalid): return
+    # if state in (lldb.eStateExited, lldb.eStateDetached, lldb.eStateInvalid): return
+    if state in (lldb.eStateExited, lldb.eStateDetached, lldb.eStateInvalid):
+        err_msg(f"Process state is {state}. Not displaying context.")
+        return
 
     # Check if *any* thread is stopped
     stopped_thread = None
@@ -7396,13 +7409,17 @@ def HandleHookStopOnTarget(debugger, command, result, dict):
         if thread.IsValid() and thread.GetStopReason() != lldb.eStopReasonNone and thread.GetStopReason() != lldb.eStopReasonInvalid:
             stopped_thread = thread
             break
-    if not stopped_thread: return # No thread actually stopped, nothing to show context for
+    # if not stopped_thread: return # No thread actually stopped, nothing to show context for
+    if not stopped_thread:
+        err_msg("No thread is currently stopped. Cannot display context.")
+        return
 
     # Use the stopped thread to get the frame
     frame = stopped_thread.GetSelectedFrame()
     if not frame or not frame.IsValid():
          # This can happen briefly during setup or teardown
          # print("[!] No valid frame for stopped thread.")
+         err_msg("No valid frame for stopped thread.")
          return
 
     # --- Session Loading/Initialization ---
