@@ -5817,167 +5817,196 @@ def get_inst_size(target_addr):
 
 
 # the disassembler we use on stop context
+# we can customize output here instead of using the cmdline as before and grabbing its output
 def disassemble(start_address, nrlines):
-    """Prints formatted disassembly starting at address for nrlines."""
     target = get_target()
-    if not target: return
-    process = target.GetProcess() # Needed for reading comments etc.
-    if not process: return
-
-    addr_fmt = "0x{:016x}" if POINTER_SIZE == 8 else "0x{:08x}"
-
-    # Resolve start address to handle potential file/load address differences
-    mem_sbaddr = target.ResolveLoadAddress(start_address)
-    if not mem_sbaddr or not mem_sbaddr.IsValid():
-        err_msg(f"Cannot resolve disassembly address {hex(start_address)}")
+    if target is None:
         return
-
-    # Read instructions using the resolved (load) address
-    instructions = target.ReadInstructions(mem_sbaddr, nrlines, CONFIG_FLAVOR)
-    if not instructions or instructions.GetSize() == 0:
-        print(f"No instructions found at {hex(start_address)}")
+    # this init will set a file_addr instead of expected load_addr
+    # and so the disassembler output will be referenced to the file address
+    # instead of the current loaded memory address
+    # this is annoying because all RIP references will be related to file addresses
+    file_sbaddr = lldb.SBAddress(start_address, target)
+    # create a SBAddress object with the load_addr set so we can disassemble with
+    # current memory addresses and what is happening right now
+    # we use the empty init and then set the property which is read/write for load_addr
+    # this whole thing seems like a bug?
+    mem_sbaddr = lldb.SBAddress()
+    mem_sbaddr.SetLoadAddress(start_address, target)
+    # disassemble to get the file and memory version
+    # we could compute this by finding sections etc but this way it seems
+    # much simpler and faster
+    # this seems to be a bug or missing feature because there is no way
+    # to distinguish between the load and file addresses in the disassembler
+    # the reason might be because we can't create a SBAddress that has
+    # load_addr and file_addr set so that the disassembler can distinguish them
+    # somehow when we use file_sbaddr object the SBAddress GetLoadAddress()
+    # retrieves the correct memory address for the instruction while the
+    # SBAddress GetFileAddress() retrives the correct file address
+    # but the branch instructions addresses are the file addresses
+    # bug on SBAddress init implementation???
+    # this also has problems with symbols - the memory version doesn't have them
+    # flavor argument only relevant to x86 targets - works fine with ARM like this
+    instructions_mem = target.ReadInstructions(mem_sbaddr, nrlines, CONFIG_FLAVOR)
+    instructions_file = target.ReadInstructions(file_sbaddr, nrlines, CONFIG_FLAVOR)
+    if instructions_mem.GetSize() != instructions_file.GetSize():
+        err_msg("Instructions arrays sizes are different.")
         return
-
-    # Find max instruction byte size and mnemonic length for alignment
-    max_byte_size = 0
+    # find out the biggest instruction length and mnemonic length
+    # so we can have a uniform output
+    max_size = 0
     max_mnem_size = 0
-    for i in range(instructions.GetSize()):
-        inst = instructions.GetInstructionAtIndex(i)
-        if inst.GetByteSize() > max_byte_size: max_byte_size = inst.GetByteSize()
-        mnem_len = len(inst.GetMnemonic(target))
-        if mnem_len > max_mnem_size: max_mnem_size = mnem_len
-
-    # Ensure minimum width for common instructions
-    if max_mnem_size < 6: max_mnem_size = 6
-    # Max reasonable byte display width (e.g., 15 bytes for x86)
-    if max_byte_size > 15: max_byte_size = 15
+    for i in instructions_mem:
+        if i.size > max_size:
+            max_size = i.size
+        mnem_len = len(i.GetMnemonic(target))
+        if mnem_len > max_mnem_size:
+            max_mnem_size = mnem_len
 
     current_pc = get_current_pc()
-    current_func_name = None # Track function boundaries
+    # get info about module if there is a symbol
+    module = file_sbaddr.module
+    # module_name = module.file.GetFilename()
+    module_name = module.file.fullpath
+    if module_name is not None:
+        module_name = os.path.abspath(module_name)
 
-    for idx in range(instructions.GetSize()):
-        inst = instructions.GetInstructionAtIndex(idx)
-        inst_addr_obj = inst.GetAddress()
-        if not inst_addr_obj or not inst_addr_obj.IsValid(): continue
+    count = 0
+    blockstart_symaddr = None
+    blockend_symaddr = None
+    for mem_inst in instructions_mem:
+        # get the same instruction but from the file version because we need some info from it
+        file_inst = instructions_file[count]
+        # try to extract the symbol (function) name from this location if it exists
+        # needs to be referenced to file because memory it doesn't work
+        symbol_name = instructions_file[count].addr.GetSymbol().GetName()
+        # if there is no symbol just display module where current instruction is
+        # also get rid of unnamed symbols since they are useless
+        if symbol_name is None or "___lldb_unnamed_symbol" in symbol_name:
+            if count == 0:
+                if CONFIG_ENABLE_COLOR == 1:
+                    output(COLOR_SYMBOL_NAME + "@ {}:".format(module_name) + "\n" + RESET)
+                else:
+                    output("@ {}:".format(module_name) + "\n")
+        elif symbol_name is not None:
+            # print the first time there is a symbol name and save its interval
+            # so we don't print again until there is a different symbol
+            file_symaddr = file_inst.GetAddress().GetFileAddress()
+            if blockstart_symaddr is None or (file_symaddr < blockstart_symaddr) or (file_symaddr >= blockend_symaddr):
+                if CONFIG_ENABLE_COLOR == 1:
+                    output(COLOR_SYMBOL_NAME + "{} @ {}:".format(symbol_name, module_name) + "\n" + RESET)
+                else:
+                    output("{} @ {}:".format(symbol_name, module_name) + "\n")
+                blockstart_symaddr = file_inst.GetAddress().GetSymbol().GetStartAddress().GetFileAddress()
+                blockend_symaddr = file_inst.GetAddress().GetSymbol().GetEndAddress().GetFileAddress()
 
-        mem_addr = inst_addr_obj.GetLoadAddress(target)
-        if mem_addr == lldb.LLDB_INVALID_ADDRESS: continue
-
-        # --- Function / Module Header ---
-        symbol = inst_addr_obj.GetSymbol()
-        func_name = symbol.GetName() if symbol and symbol.IsValid() else None
-        module = inst_addr_obj.GetModule()
-        mod_name = module.GetFileSpec().GetFilename() if module and module.IsValid() else "<unknown>"
-
-        # Print function header only when it changes
-        if func_name and func_name != current_func_name:
-             print(COLOR_SYMBOL_NAME + f"{func_name} @ {mod_name}:" + RESET)
-             current_func_name = func_name
-        elif not func_name and current_func_name is not None:
-             # Left the known function, clear the tracker (might print module again if needed)
-             current_func_name = None
-             # Optionally print module header if we left a function?
-             # print(COLOR_SYMBOL_NAME + f"@ {mod_name}:" + RESET)
-
-
-        # --- Instruction Formatting ---
-        is_current_pc = (mem_addr == current_pc)
-        prefix = COLOR_CURRENT_PC + "->" + RESET if is_current_pc else "  "
-
-        # Address part (Load address only for now, file addr adds complexity)
-        addr_part = addr_fmt.format(mem_addr)
-
-        # Bytes part
-        bytes_str = ""
+        # get the instruction bytes formatted as uint8
+        inst_data = mem_inst.GetData(target).uint8
+        mnem = mem_inst.GetMnemonic(target)
+        operands = mem_inst.GetOperands(target)
+        bytes_string = ""
         if CONFIG_DISPLAY_DISASSEMBLY_BYTES == 1:
-            inst_data = inst.GetData(target)
-            if inst_data and inst_data.IsValid():
-                 # Read appropriate number of bytes, up to max_byte_size
-                 num_bytes = min(inst.GetByteSize(), max_byte_size)
-                 byte_list = []
-                 for k in range(num_bytes):
-                     byte_val = inst_data.GetUnsignedInt8(error, k)
-                     if error.Success():
-                         byte_list.append("{:02x}".format(byte_val))
-                     else:
-                         byte_list.append("??") # Error reading byte
-                 bytes_str = " ".join(byte_list)
-            # Pad bytes string
-            padding = (max_byte_size * 3 - 1) - len(bytes_str) # Each byte is 2 chars + 1 space (except last)
-            bytes_str = bytes_str.ljust(len(bytes_str) + max(0, padding))
-        bytes_part = COLOR_DISASM_LISTING + bytes_str + RESET if bytes_str else "" # Apply color only if bytes are shown
+            total_fill = max_size - mem_inst.size
+            total_spaces = mem_inst.size - 1
+            for x in inst_data:
+                bytes_string += "{:02x}".format(x)
+                if total_spaces > 0:
+                    bytes_string += " "
+                    total_spaces -= 1
+            if total_fill > 0:
+                # we need one more space because the last byte doesn't have space
+                # and if we are smaller than max size we are one space short
+                bytes_string += "  " * total_fill
+                bytes_string += " " * total_fill
 
-        # Mnemonic and Operands
-        mnem = inst.GetMnemonic(target)
-        operands = inst.GetOperands(target)
-        # Pad mnemonic
-        mnem = mnem.ljust(max_mnem_size)
-        mnem_oper_part = COLOR_DISASM_LISTING + f"{mnem} {operands}" + RESET
+        mnem_len = len(mem_inst.GetMnemonic(target))
+        if mnem_len < max_mnem_size:
+            missing_spaces = max_mnem_size - mnem_len
+            mnem += " " * missing_spaces
 
-        # --- Comments ---
+        # the address the current instruction is loaded at
+        # we need to extract the address of the instruction and then find its loaded address
+        memory_addr = mem_inst.addr.GetLoadAddress(target)
+        # the address of the instruction in the current module
+        # for main exe it will be the address before ASLR if enabled, otherwise the same as current
+        # for modules it will be the address in the module code, not the address it's loaded at
+        # so we can use this address to quickly get to current instruction in module loaded at a disassembler
+        # without having to rebase everything etc
+        # file_addr = mem_inst.addr.GetFileAddress()
+        file_addr = file_inst.addr.GetFileAddress()
+
         comment = ""
-        # LLDB's comment
-        lldb_comment = inst.GetComment(target)
-        if lldb_comment: comment += lldb_comment
+        # start at lldb automatic comments, if available
+        # XXX: this might return bad characters and breaks the output when using the old PutCString() method
+        #      only valid for older lldb versions?
+        # XXX: might want to set a warning if this happens?
+        if file_inst.GetComment(target) != "":
+            comment = " ; " + file_inst.GetComment(target)
 
-        # lrt's user comments
+        # retrieve the base address of the module where the address belongs to
+        # the comments offsets are relative to this
+        # it's ok to use the module variable we got from file_sbaddr
+        inst_base = get_module_base(module)
         user_comment = ""
-        if module and module.IsValid() and "comments" in g_sessiondata:
-            mod_uuid = module.GetUUIDString().lower()
-            mod_base = get_module_base(module)
-            if mod_base != -1:
-                inst_offset = mem_addr - mod_base
-                inst_offset_hex = hex(inst_offset)
-                for cmt in g_sessiondata.get("comments", []):
-                    if cmt.get("uuid") == mod_uuid and cmt.get("offset") == inst_offset_hex:
-                        user_comment = cmt.get("text", "")
-                        break # Found comment
-        if user_comment:
-            if comment: comment += " " # Add separator
-            comment += COLOR_COMMENT + "; " + user_comment + RESET # Prepend semicolon
+        if inst_base > 0 and g_sessiondata != {}:
+            # not the most efficient way to do this but converting to hash table is going to increase complexity
+            # for almost no benefit speed wise (unless the number of comments is huge)
+            mod_uuid = mem_inst.addr.module.GetUUIDString().lower()
+            for k in g_sessiondata["comments"]:
+                i = int(k["offset"], 16)
+                if (k["uuid"] == mod_uuid) and (i + inst_base == memory_addr):
+                    user_comment = COLOR_COMMENT + k["text"] + RESET
+                    break
 
-        # --- Branch Target Info ---
-        branch_target_info = ""
-        if inst.DoesBranch():
-            flow_addr = get_indirect_flow_address(mem_addr) # Handles direct and indirect
-            if flow_addr is not None and flow_addr != -1:
-                flow_target_str = addr_fmt.format(flow_addr)
-                flow_sym = target.ResolveLoadAddress(flow_addr).GetSymbol()
-                flow_name = flow_sym.GetName() if flow_sym and flow_sym.IsValid() else None
-                flow_mod = target.ResolveLoadAddress(flow_addr).GetModule()
-                flow_mod_name = flow_mod.GetFileSpec().GetFilename() if flow_mod and flow_mod.IsValid() else None
+        header = 0
+        if current_pc == memory_addr:
+            header = 1
+            # try to retrieve extra information if it's a branch instruction
+            # used to resolve indirect branches and try to extract Objective-C selectors
+            if mem_inst.DoesBranch():
+                flow_addr = get_indirect_flow_address(mem_inst.GetAddress().GetLoadAddress(target))
+                if flow_addr > 0:
+                    flow_module_name = get_module_name(flow_addr)
+                    symbol_info = ""
+                    # try to solve the symbol for the target address
+                    target_symbol_name = lldb.SBAddress(flow_addr, target).GetSymbol().GetName()
+                    # if there is a symbol append to the string otherwise
+                    # it will be empty and have no impact in output
+                    if target_symbol_name is not None:
+                        symbol_info = target_symbol_name + " @ "
 
-                branch_target_info = f"-> {flow_target_str}"
-                if flow_name: branch_target_info += f" <{flow_name}>"
-                if flow_mod_name: branch_target_info += f" @ {flow_mod_name}"
+                    if comment == "":
+                        # remove space for instructions without operands
+                        if mem_inst.GetOperands(target) == "":
+                            comment = "; " + symbol_info + hex(flow_addr) + " @ " + flow_module_name
+                        else:
+                            comment = " ; " + symbol_info + hex(flow_addr) + " @ " + flow_module_name
+                    else:
+                        comment += " " + hex(flow_addr) + " @ " + flow_module_name
+                # for arm64 targets there is a branch to a subroutine that does the real call to the objc_msgSend
+                # and the selector string is there - the symbol name does contain the name
+                # so we can either extract it from here or read the information from the subroutine
+                # or not worth the trouble since the symbol name always has lots of info
+                className, selectorName = get_objectivec_selector(current_pc)
+                if className != "":
+                    if selectorName != "":
+                        comment += " -> " + "[" + className + " " + selectorName + "]"
+                    else:
+                        comment += " -> " + "[" + className + "]"
 
-                branch_target_info = COLOR_SYMBOL_NAME + branch_target_info + RESET
+        # append or set user comment
+        if user_comment != "":
+            if comment != "":
+                comment += " " + user_comment
+            else:
+                comment = " ; " + user_comment
+        # first line is different from the rest
+        if header:
+            output(COLOR_CURRENT_PC + "->  0x{:x} (0x{:x}): {}  {}   {}{:s}\n".format(memory_addr, file_addr, bytes_string, mnem, operands, comment) + RESET)
+        else:
+            output("    0x{:x} (0x{:x}): {}  {}   {}{:s}\n".format(memory_addr, file_addr, bytes_string, mnem, operands, comment))
 
-        # --- Objective-C Info ---
-        objc_info = ""
-        if is_sending_objc_msg(): # Check if current instruction calls objc_msgSend
-             className, selectorName = get_objectivec_selector(mem_addr)
-             if className:
-                  objc_info = f" [{className}"
-                  if selectorName: objc_info += f" {selectorName}"
-                  objc_info += "]"
-                  objc_info = COLOR_MAGENTA + objc_info + RESET # Use a different color
-
-        # Assemble the line
-        line = f"{prefix}  {addr_part}: {bytes_part}  {mnem_oper_part}"
-        # Append comments and info smartly
-        extra_info = ""
-        if comment: extra_info += comment
-        if branch_target_info:
-             if extra_info and not extra_info.endswith(" "): extra_info += " "
-             extra_info += branch_target_info
-        if objc_info:
-             if extra_info and not extra_info.endswith(" "): extra_info += " "
-             extra_info += objc_info
-
-        if extra_info: line += f"    {extra_info}" # Add padding before comments/info
-
-        print(line)
+        count += 1
 
     return
 
