@@ -55,6 +55,9 @@ except ImportError:
 VERSION = "3.3"
 BUILD = "451"
 
+# internal debugging
+LRT_INTERNAL_DEBUG = os.environ.get("LRT_INTERNAL_DEBUG", 0)
+
 #
 # User configurable options
 #
@@ -186,6 +189,7 @@ if CONFIG_APPEARANCE == "light":
     COLOR_HEXDUMP_DATA = BLACK
     COLOR_HEXDUMP_ASCII = BLACK
     COLOR_COMMENT = GREEN
+    COLOR_LOGDEBUG = BRIGHT_BLACK
     COLOR_LOGINFO = BRIGHT_BLUE
     COLOR_LOGWARN = BRIGHT_YELLOW
     COLOR_LOGERROR = BRIGHT_RED
@@ -207,6 +211,7 @@ elif CONFIG_APPEARANCE == "dark":
     COLOR_HEXDUMP_DATA = WHITE
     COLOR_HEXDUMP_ASCII = WHITE
     COLOR_COMMENT = GREEN
+    COLOR_LOGDEBUG = BRIGHT_BLACK
     COLOR_LOGINFO = GREEN
     COLOR_LOGWARN = YELLOW
     COLOR_LOGERROR = RED
@@ -228,6 +233,7 @@ elif CONFIG_APPEARANCE == "redthing1":
     COLOR_HEXDUMP_DATA = WHITE
     COLOR_HEXDUMP_ASCII = WHITE
     COLOR_COMMENT = GREEN
+    COLOR_LOGDEBUG = BRIGHT_BLACK
     COLOR_LOGINFO = BRIGHT_BLUE
     COLOR_LOGWARN = BRIGHT_YELLOW
     COLOR_LOGERROR = BRIGHT_RED
@@ -1114,10 +1120,14 @@ def get_lldb_version(debugger):
         "Unable to determine LLDB variant and version from string: " + version_string
     )
 
-# --- Added err_msg and help_msg from upstream ---
 # helper function to print standardized and colored error messages
 def err_msg(msg):
     print(COLOR_ERROR + "[-] ERROR: " + RESET + "{}".format(msg))
+
+# internal debug messages
+def dbg_msg(msg):
+    if LRT_INTERNAL_DEBUG:
+        print(COLOR_LOGDEBUG + "[*] DEBUG: " + RESET + "{}".format(msg))
 
 # XXX: kinda hacky and ugly since not adapting to terminal width etc
 def help_msg(help_dict):
@@ -6937,58 +6947,236 @@ def cmd_listcomments(debugger, command, result, dict):
 
 
 # hash the r-x region of the target process main executable
+# def hash_target():
+#     """Hashes the first executable segment of the main executable."""
+#     target = get_target()
+#     if not target: return ""
+#     process = get_process()
+#     if not process: return "" # Need process for reading memory
+
+#     exe_module = target.GetModuleAtIndex(0) # Assume index 0 is main executable
+#     if not exe_module or not exe_module.IsValid():
+#          err_msg("Could not get main executable module.")
+#          return ""
+
+#     first_exec_section = None
+#     for section in exe_module:
+#         if section.IsExecutable():
+#             first_exec_section = section
+#             break
+
+#     if not first_exec_section:
+#          err_msg("Could not find executable section in main module to hash.")
+#          return ""
+
+#     start_addr = first_exec_section.GetLoadAddress(target)
+#     size = first_exec_section.GetFileByteSize() # Use file size as approximation
+
+#     if start_addr == lldb.LLDB_INVALID_ADDRESS or size == 0:
+#         err_msg("Invalid address or size for executable section.")
+#         return ""
+
+#     error = lldb.SBError()
+#     # Read memory carefully - avoid reading huge sections if possible
+#     # Maybe hash first N bytes? Or hash section headers?
+#     # For simplicity, let's try reading the section (can be large!)
+#     # Consider adding a size limit for hashing.
+#     MAX_HASH_SIZE = 10 * 1024 * 1024 # Limit hash to 10MB?
+#     read_size = min(size, MAX_HASH_SIZE)
+
+#     # print(f"[DEBUG] Hashing {read_size} bytes starting at {hex(start_addr)}...")
+#     mem_data = process.ReadMemory(start_addr, read_size, error)
+#     if not error.Success() or not mem_data:
+#          err_msg(f"Failed to read memory for hashing. Error: {error}")
+#          return ""
+
+#     try:
+#         hash_obj = hashlib.sha256(bytes(mem_data))
+#         hex_digest = hash_obj.hexdigest()
+#         if DEBUG: print(f"[DEBUG] Target hash: {hex_digest}")
+#         return hex_digest
+#     except Exception as e:
+#         err_msg(f"Hashing failed: {e}")
+#         return ""
+
 def hash_target():
-    """Hashes the first executable segment of the main executable."""
+    """
+    Hashes the primary executable code section of the main executable module
+    across different platforms (Mach-O, ELF, PE), verifying it's loaded into
+    executable memory. Handles module name prefixes in section names.
+
+    Returns:
+        str: The SHA256 hash of the code section as a hex string, or an empty string on error.
+    """
     target = get_target()
-    if not target: return ""
+    if not target:
+        err_msg("No target selected.")
+        return ""
     process = get_process()
-    if not process: return "" # Need process for reading memory
-
-    exe_module = target.GetModuleAtIndex(0) # Assume index 0 is main executable
-    if not exe_module or not exe_module.IsValid():
-         err_msg("Could not get main executable module.")
-         return ""
-
-    first_exec_section = None
-    for section in exe_module:
-        if section.IsExecutable():
-            first_exec_section = section
-            break
-
-    if not first_exec_section:
-         err_msg("Could not find executable section in main module to hash.")
-         return ""
-
-    start_addr = first_exec_section.GetLoadAddress(target)
-    size = first_exec_section.GetFileByteSize() # Use file size as approximation
-
-    if start_addr == lldb.LLDB_INVALID_ADDRESS or size == 0:
-        err_msg("Invalid address or size for executable section.")
+    if not process:
+        err_msg("Target has no process.")
         return ""
 
-    error = lldb.SBError()
-    # Read memory carefully - avoid reading huge sections if possible
-    # Maybe hash first N bytes? Or hash section headers?
-    # For simplicity, let's try reading the section (can be large!)
-    # Consider adding a size limit for hashing.
-    MAX_HASH_SIZE = 10 * 1024 * 1024 # Limit hash to 10MB?
-    read_size = min(size, MAX_HASH_SIZE)
+    # Assume index 0 is the main executable module.
+    exe_module = target.GetModuleAtIndex(0)
+    if not exe_module or not exe_module.IsValid():
+        err_msg("Could not get main executable module.")
+        return ""
+    module_name = exe_module.GetFileSpec().GetFilename()
+    dbg_msg(f"Checking module: {module_name}.")
 
-    # print(f"[DEBUG] Hashing {read_size} bytes starting at {hex(start_addr)}...")
-    mem_data = process.ReadMemory(start_addr, read_size, error)
-    if not error.Success() or not mem_data:
-         err_msg(f"Failed to read memory for hashing. Error: {error}")
-         return ""
+    # Determine target section name suffix based on platform
+    triple = target.GetTriple()
+    dbg_msg(f"Detected target triple: {triple}.")
+
+    expected_contain = None
+    platform_desc = "Unknown"
+    if 'apple' in triple or 'darwin' in triple or 'ios' in triple:
+        # Mach-O uses segment.section, LLDB often prepends module name.
+        platform_desc = "Mach-O (Apple)"
+        expected_contain = "__text"
+    elif 'linux' in triple:
+        # ELF commonly uses '.text'
+        platform_desc = "ELF (Linux)"
+        expected_contain = "text"
+    elif 'windows' in triple:
+         # PE/COFF commonly uses '.text'
+        platform_desc = "PE/COFF (Windows)"
+        expected_contain = "text"
+    else:
+        err_msg(f"Unsupported platform triple: {triple}. Cannot determine code section suffix.")
+        return ""
+
+    dbg_msg(f"Platform detected as: {platform_desc}. Expecting section contains: '{expected_contain}' and type Code.")
+
+    # --- Find the section by iterating and checking suffix and type ---
+    section_to_hash = None
+    section_name_for_log = f"section ending with '{expected_contain}'"
+
+    def process_section(section):
+        sec_name = section.GetName()
+        sec_type = section.GetSectionType()
+
+        # # print every field in section
+        # for item in dir(section):
+        #     # skip "data"
+        #     if item == "data":
+        #         continue
+        #     if not item.startswith("__") and not item.startswith("Get"):
+        #         try:
+        #             value = getattr(section, item)
+        #             dbg_msg(f"Section {i}: {item} = {value}")
+        #         except Exception as e:
+        #             err_msg(f"Error accessing section attribute '{item}': {e}")
+
+        # Check if name ends with the expected suffix AND type is Code
+        if sec_name and expected_contain in sec_name and sec_type == lldb.eSectionTypeCode:
+            dbg_msg(f"Found code section: Index={i}, Name='{sec_name}', Type={sec_type}.")
+            return section
+        # elif sec_name:
+        #     dbg_msg(f"Checked section index {i}: Name='{sec_name}', Type={sec_type} (no match).")
+        
+        # iterate over subsections
+        for subsection in section:
+            ret = process_section(subsection)
+            if ret is not None:
+                dbg_msg(f"Found code subsection: {ret}")
+                return ret
+        
+        # If no match found, return None
+        return None
+
+
+    num_sections = exe_module.GetNumSections()
+    dbg_msg(f"Searching {num_sections} sections...")
+    for i in range(num_sections):
+        section = exe_module.GetSectionAtIndex(i)
+        if section and section.IsValid():
+            ret = process_section(section)
+            if ret is not None:
+                dbg_msg(f"Selected code section: {ret}.")
+                section_to_hash = ret
+                section_name_for_log = section.GetName()
+                break
+        # else:
+        #     dbg_msg(f"Skipping invalid section at index {i}.")
+
+    # If the section wasn't found after iterating
+    if not section_to_hash:
+        err_msg(f"Could not find a suitable code section (e.g., containing '{expected_contain}' with type Code) in module {module_name}.")
+        return ""
+
+    # --- Validate the found section ---
+    sec_load_addr = section_to_hash.GetLoadAddress(target)
+    dbg_msg(f"Validating section '{section_name_for_log}'. Load addr: {hex(sec_load_addr)}.")
+
+    if sec_load_addr == lldb.LLDB_INVALID_ADDRESS:
+        err_msg(f"Section '{section_name_for_log}' has invalid load address.")
+        return ""
+
+    size = section_to_hash.GetByteSize()
+    if size == 0:
+        dbg_msg(
+            f"Section '{section_name_for_log}' GetByteSize is 0, using GetFileByteSize."
+        )
+        size = section_to_hash.GetFileByteSize()
+        if size == 0:
+            err_msg(
+                f"Section '{section_name_for_log}' has size 0 (checked GetByteSize and GetFileByteSize)."
+            )
+            return ""
+
+    # --- Check memory permissions ---
+    region_info = lldb.SBMemoryRegionInfo()
+    error = process.GetMemoryRegionInfo(sec_load_addr, region_info)
+    mem_is_executable = error.Success() and region_info.IsExecutable()
+
+    if not mem_is_executable:
+        perms_str = "n/a"
+        region_str = "n/a"
+        if error.Success():
+            perms_str = f"r={str(region_info.IsReadable()).lower()} w={str(region_info.IsWritable()).lower()} x={str(region_info.IsExecutable()).lower()}"
+            region_str = f"[{hex(region_info.GetRegionBase())}-{hex(region_info.GetRegionEnd())})"
+        err_msg(
+             f"Memory for section '{section_name_for_log}' at {hex(sec_load_addr)} is not executable. Region: {region_str}, Perms: {perms_str}, Error: {error}."
+        )
+        return ""
+
+    # If all checks passed.
+    dbg_msg(
+        f"Section '{section_name_for_log}' validated. Addr={hex(sec_load_addr)}, Size={size}, MemExecutable=true."
+    )
+    start_addr = sec_load_addr
+
+    # --- Hashing logic ---
+    error_hash = lldb.SBError()
+    max_hash_size = 10 * 1024 * 1024  # 10MB limit.
+    read_size = min(size, max_hash_size)
+    dbg_msg(
+        f"Hashing {read_size} bytes from section '{section_name_for_log}' starting at {hex(start_addr)}."
+    )
+
+    if size > max_hash_size:
+        print(
+            f"[Info] Section size ({size} bytes) exceeds limit ({max_hash_size}), hashing only the first {read_size} bytes."
+        )
+
+    mem_data = process.ReadMemory(start_addr, read_size, error_hash)
+
+    if not error_hash.Success() or not mem_data:
+        err_msg(
+            f"Failed to read memory for hashing section '{section_name_for_log}' (addr: {hex(start_addr)}, size: {read_size}). Error: {error_hash}."
+        )
+        return ""
 
     try:
-        hash_obj = hashlib.sha256(bytes(mem_data))
+        hash_obj = hashlib.sha256(mem_data)
         hex_digest = hash_obj.hexdigest()
-        if DEBUG: print(f"[DEBUG] Target hash: {hex_digest}")
+        dbg_msg(f"Target hash ({section_name_for_log} section): {hex_digest}.")
         return hex_digest
     except Exception as e:
-        err_msg(f"Hashing failed: {e}")
+        err_msg(f"Hashing failed: {e}.")
         return ""
-
 
 # save the session data to JSON file
 def save_json_session(filepath):
