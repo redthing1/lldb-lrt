@@ -380,7 +380,7 @@ LLDB_VARIANT = None
 # current sessions storage version
 SESSION_VERSION = 2
 
-def __lldb_init_module(debugger, internal_dict):
+def __lldb_init_module(debugger, internal_cdict):
     """we can execute lldb commands using debugger.HandleCommand() which makes all output to default
     lldb console. With SBDebugger.GetCommandinterpreter().HandleCommand() we can consume all output
     with SBCommandReturnObject and parse data before we send it to output (eg. modify it);
@@ -1130,7 +1130,7 @@ def dbg_msg(msg):
         print(COLOR_LOGDEBUG + "[*] DEBUG: " + RESET + "{}".format(msg))
 
 # XXX: kinda hacky and ugly since not adapting to terminal width etc
-def help_msg(help_dict):
+def help_msg(help_cdict):
     print(BOLD + "NAME")
     print(BOLD + "\t{}".format(help_dict["cmd"]) + RESET + " -- {}".format(help_dict["short"]) + "\n")
     print(BOLD + "SYNOPSIS")
@@ -1163,7 +1163,7 @@ def help_msg(help_dict):
 
 # --- Added cmd_man from upstream ---
 # just a silly shortcut - requires the command to have the help option
-def cmd_man(debugger, command, result, dict):
+def cmd_man(debugger, command, result, cdict):
     cmd = command.split()
     if len(cmd) == 0:
         err_msg("The man command requires an argument.")
@@ -1187,14 +1187,14 @@ def cmd_man(debugger, command, result, dict):
              print(res.GetError())
 
 
-def cmd_banner(debugger, command, result, dict):
+def cmd_banner(debugger, command, result, cdict):
     global LLDB_VARIANT, LLDB_MAJOR, LLDB_MINOR
     print(
         f"{GREEN}[+] lrt v{VERSION}.{BUILD} @ lldb-{LLDB_MAJOR}.{LLDB_MINOR} ({LLDB_VARIANT}){RESET}"
     )
 
 
-def cmd_lrtcmds(debugger, command, result, dict):
+def cmd_lrtcmds(debugger, command, result, cdict):
     """Display all available lrt commands."""
 
     help_table = [
@@ -1294,7 +1294,7 @@ def cmd_lrtcmds(debugger, command, result, dict):
 
 
 # placeholder to make tests
-def cmd_tester(debugger, command, result, dict):
+def cmd_tester(debugger, command, result, cdict):
     # Using the new help system
     help_dict = {
     "cmd": "tester",
@@ -1341,7 +1341,7 @@ def cmd_tester(debugger, command, result, dict):
 # -------------------------
 
 
-def cmd_enable(debugger, command, result, dict):
+def cmd_enable(debugger, command, result, cdict):
     """Enable certain lldb and lrt options. Use 'enable help' for more information."""
     help_dict = {
         "cmd": "enable",
@@ -1403,7 +1403,7 @@ def cmd_enable(debugger, command, result, dict):
     return
 
 
-def cmd_disable(debugger, command, result, dict):
+def cmd_disable(debugger, command, result, cdict):
     """Disable certain lldb and lrt options. Use 'disable help' for more information."""
     help_dict = {
         "cmd": "disable",
@@ -1462,7 +1462,7 @@ def cmd_disable(debugger, command, result, dict):
     return
 
 
-def cmd_contextcodesize(debugger, command, result, dict):
+def cmd_contextcodesize(debugger, command, result, cdict):
     """Set the number of disassembly lines in code window. Use 'contextcodesize help' for more information."""
     help_dict = {
         "cmd": "contextcodesize",
@@ -1508,7 +1508,7 @@ def output(x):
 # ---------------------------------
 # Threads related commands (Added from upstream)
 # ---------------------------------
-def cmd_listthreads(debugger, command, result, dict):
+def cmd_listthreads(debugger, command, result, cdict):
     """List current threads. Use 'tl help' for more information."""
     help_dict = {
         "cmd": "tl",
@@ -1556,7 +1556,7 @@ def cmd_listthreads(debugger, command, result, dict):
 
         print(info)
 
-def cmd_suspendthread(debugger, command, result, dict):
+def cmd_suspendthread(debugger, command, result, cdict):
     """Suspend a thread. Use 'ts help' for more information."""
     help_dict = {
         "cmd": "ts",
@@ -1609,7 +1609,7 @@ ANTIDEBUG_SYSCTL_OBJS = []
 # the second step breakpoint callback of the sysctl antidebug bypass
 # we are at the return address of sysctl symbol
 # and we simply remove the P_TRACED flag if it exists
-def antidebug_callback_step2(frame, bp_loc, dict):
+def antidebug_callback_step2(frame, bp_loc, cdict):
     P_TRACED = 0x800
     global ANTIDEBUG_SYSCTL_OBJS
     # print("[+] Hit antidebug_callback_step2")
@@ -1648,7 +1648,7 @@ def antidebug_callback_step2(frame, bp_loc, dict):
 # this deals with the breakpoint at sysctl symbol
 # the purpose is to verify the request and set a second stage on return address
 # where the debug flag is removed
-def antidebug_callback_step1(frame, bp_loc, dict):
+def antidebug_callback_step1(frame, bp_loc, cdict):
     global ANTIDEBUG_SYSCTL_OBJS
     error = lldb.SBError()
 
@@ -1754,7 +1754,7 @@ def antidebug_callback_step1(frame, bp_loc, dict):
 
 
 # bypass PT_DENY_ATTACH via ptrace() call
-def antidebug_ptrace_callback(frame, bp_loc, dict):
+def antidebug_ptrace_callback(frame, bp_loc, cdict):
     PT_DENY_ATTACH = 31
     error = lldb.SBError()
     process = get_process() # Added process retrieval
@@ -1805,7 +1805,7 @@ def antidebug_ptrace_callback(frame, bp_loc, dict):
 
 
 # debugger detection via the mach exception ports
-def antidebug_task_exception_ports_callback(frame, bp_loc, dict):
+def antidebug_task_exception_ports_callback(frame, bp_loc, cdict):
     process = get_process() # Added process retrieval
     if frame is None:
         process.Continue()
@@ -1862,7 +1862,7 @@ def antidebug_task_exception_ports_callback(frame, bp_loc, dict):
         process.Continue()
 
 
-def cmd_antidebug(debugger, command, result, dict):
+def cmd_antidebug(debugger, command, result, cdict):
     """Enable anti-anti-debugging. Use 'antidebug help' for more information."""
     help_dict = {
         "cmd": "antidebug",
@@ -1924,7 +1924,7 @@ def cmd_antidebug(debugger, command, result, dict):
 
 # the callback for the specific module loaded breakpoint
 # supports x64, i386, arm64
-def module_breakpoint_callback(frame, bp_loc, dict):
+def module_breakpoint_callback(frame, bp_loc, cdict):
     global modules_list
     # rdx contains the module address
     # rdx+8 contains pointer to the module name string
@@ -2035,7 +2035,7 @@ def module_breakpoint_callback(frame, bp_loc, dict):
 
 
 # breakpoint on specific module
-def cmd_bm(debugger, command, result, dict):
+def cmd_bm(debugger, command, result, cdict):
     """Set breakpoint on specific module load. Use 'bm help' for more information."""
     help_dict = {
         "cmd": "bm",
@@ -2111,7 +2111,7 @@ If no module path is specified, it sets a breakpoint at the notifier entry point
         # Or keep the callback and let it handle the empty modules_list case? Let's keep it simple and leave callback if it was there.
 
 
-def cmd_bmc(debugger, command, result, dict):
+def cmd_bmc(debugger, command, result, cdict):
     """Clear all modules being watched by 'bm'. Use 'bmc help' for more information."""
     help_dict = {
         "cmd": "bmc",
@@ -2132,7 +2132,7 @@ def cmd_bmc(debugger, command, result, dict):
         print("[+] Module watch list is already empty.")
 
 
-def cmd_bml(debugger, command, result, dict):
+def cmd_bml(debugger, command, result, cdict):
     """List all modules being watched by 'bm'."""
     help_dict = {
         "cmd": "bml",
@@ -2158,7 +2158,7 @@ def cmd_bml(debugger, command, result, dict):
 
 
 # Kept from lrt
-def cmd_bpmnm(debugger, command, result, dict):
+def cmd_bpmnm(debugger, command, result, cdict):
     """
     Set temporary breakpoint on all instructions in a module with a specific mnemonic.
     Use 'bpmnm help' for more information.
@@ -2295,7 +2295,7 @@ def cmd_bpmnm(debugger, command, result, dict):
     )
 
 
-def cmd_print_notifier_images(debugger, command, result, dict):
+def cmd_print_notifier_images(debugger, command, result, cdict):
     """Print all images available at gdb_image_notifier/lldb_image_notifier breakpoint."""
     help_dict = {
         "cmd": "print_images",
@@ -2388,7 +2388,7 @@ def cmd_print_notifier_images(debugger, command, result, dict):
 
 
 # software breakpoint (bb alias)
-def cmd_bp(debugger, command, result, dict):
+def cmd_bp(debugger, command, result, cdict):
     """Set a software breakpoint. Use 'bb help' or 'man bb' for more information."""
     help_dict = {
         "cmd": "bb", # Help for the alias
@@ -2439,7 +2439,7 @@ def cmd_bp(debugger, command, result, dict):
 
 
 # temporary software breakpoint
-def cmd_bpt(debugger, command, result, dict):
+def cmd_bpt(debugger, command, result, cdict):
     """Set a temporary software breakpoint. Use 'bpt help' for more information."""
     help_dict = {
         "cmd": "bpt",
@@ -2482,7 +2482,7 @@ def cmd_bpt(debugger, command, result, dict):
 
 
 # hardware breakpoint
-def cmd_bh(debugger, command, result, dict):
+def cmd_bh(debugger, command, result, cdict):
     """Set an hardware breakpoint."""
     help_dict = {
         "cmd": "bh",
@@ -2549,7 +2549,7 @@ def cmd_bh(debugger, command, result, dict):
 
 
 # temporary hardware breakpoint
-def cmd_bht(debugger, command, result, dict):
+def cmd_bht(debugger, command, result, cdict):
     """Set a temporary hardware breakpoint."""
     help_dict = {
         "cmd": "bht",
@@ -2602,7 +2602,7 @@ def cmd_bht(debugger, command, result, dict):
 
 
 # clear breakpoint number
-def cmd_bpc(debugger, command, result, dict):
+def cmd_bpc(debugger, command, result, cdict):
     """Clear a breakpoint. Use 'bpc help' for more information."""
     help_dict = {
         "cmd": "bpc",
@@ -2648,7 +2648,7 @@ def cmd_bpc(debugger, command, result, dict):
 
 
 # disable breakpoint number
-def cmd_bpd(debugger, command, result, dict):
+def cmd_bpd(debugger, command, result, cdict):
     """Disable a breakpoint. Use 'bpd help' for more information."""
     help_dict = {
         "cmd": "bpd",
@@ -2697,7 +2697,7 @@ def cmd_bpd(debugger, command, result, dict):
 
 
 # disable all breakpoints
-def cmd_bpda(debugger, command, result, dict):
+def cmd_bpda(debugger, command, result, cdict):
     """Disable all breakpoints. Use 'bpda help' for more information."""
     help_dict = {
         "cmd": "bpda",
@@ -2739,7 +2739,7 @@ def cmd_bpda(debugger, command, result, dict):
 
 
 # enable breakpoint number
-def cmd_bpe(debugger, command, result, dict):
+def cmd_bpe(debugger, command, result, cdict):
     """Enable a breakpoint. Use 'bpe help' for more information."""
     help_dict = {
         "cmd": "bpe",
@@ -2788,7 +2788,7 @@ def cmd_bpe(debugger, command, result, dict):
 
 
 # enable all breakpoints
-def cmd_bpea(debugger, command, result, dict):
+def cmd_bpea(debugger, command, result, cdict):
     """Enable all breakpoints. Use 'bpea help' for more information."""
     help_dict = {
         "cmd": "bpea",
@@ -2830,7 +2830,7 @@ def cmd_bpea(debugger, command, result, dict):
 
 
 # list all breakpoints
-def cmd_bpl(debugger, command, result, dict):
+def cmd_bpl(debugger, command, result, cdict):
     """List all breakpoints. Use 'bpl help' or 'man bpl' for more information."""
     help_dict = {
         "cmd": "bpl",
@@ -2954,7 +2954,7 @@ def cmd_bpl(debugger, command, result, dict):
 
 
 # skip current instruction - just advances PC to next instruction but doesn't execute it
-def cmd_skip(debugger, command, result, dict):
+def cmd_skip(debugger, command, result, cdict):
     """Advance PC to instruction at next address. Use 'skip help' for more information."""
     help_dict = {
         "cmd": "skip",
@@ -2997,7 +2997,7 @@ def cmd_skip(debugger, command, result, dict):
     debugger.HandleCommand("context")
 
 
-def cmd_int3(debugger, command, result, dict):
+def cmd_int3(debugger, command, result, cdict):
     """Patch at address to a breakpoint instruction (INT3 for x86, BRK #0 for AArch64). Use 'int3 help' for more information."""
     help_dict = {
         "cmd": "int3",
@@ -3076,7 +3076,7 @@ Useful in cases where debugger breakpoints aren't respected but a software break
     return
 
 
-def cmd_rint3(debugger, command, result, dict):
+def cmd_rint3(debugger, command, result, cdict):
     """Restore byte(s) at address from a previously patched breakpoint instruction. Use 'rint3 help' for more information."""
     help_dict = {
         "cmd": "rint3",
@@ -3152,7 +3152,7 @@ def cmd_rint3(debugger, command, result, dict):
     return
 
 
-def cmd_listint3(debugger, command, result, dict):
+def cmd_listint3(debugger, command, result, cdict):
     """List all addresses patched with breakpoint instructions. Use 'listint3 help' for more information."""
     help_dict = {
         "cmd": "listint3",
@@ -3182,7 +3182,7 @@ def cmd_listint3(debugger, command, result, dict):
     return
 
 
-def cmd_nop(debugger, command, result, dict):
+def cmd_nop(debugger, command, result, cdict):
     """NOP byte(s) at address. Use 'nop help' for more information."""
     help_dict = {
         "cmd": "nop",
@@ -3276,7 +3276,7 @@ def cmd_nop(debugger, command, result, dict):
     return
 
 
-def cmd_null(debugger, command, result, dict):
+def cmd_null(debugger, command, result, cdict):
     """Patch byte(s) at address to NULL (0x00). Use 'null help' for more information."""
     help_dict = {
         "cmd": "null",
@@ -3344,7 +3344,7 @@ def cmd_null(debugger, command, result, dict):
 
 
 # Implements the stepover command.
-def cmd_stepo(debugger, command, result, dict):
+def cmd_stepo(debugger, command, result, cdict):
     """Step over calls and some other instructions so we don't need to step into them. Use 'stepo help' for more information."""
     help_dict = { # Using dict format
         "cmd": "stepo",
@@ -3418,7 +3418,7 @@ Affected instructions:
 
 # Added from upstream
 # Implements the stepover command using hardware breakpoints.
-def cmd_stepoh(debugger, command, result, dict):
+def cmd_stepoh(debugger, command, result, cdict):
     """Step over calls and some other instructions using hardware breakpoints. Use 'stepoh help' for more information."""
     help_dict = {
         "cmd": "stepoh",
@@ -3503,7 +3503,7 @@ Affected instructions:
         debugger.SetAsync(False)
         thread.StepInstruction(False)
 
-def cmd_sutcs(debugger, command, result, dict):
+def cmd_sutcs(debugger, command, result, cdict):
     """Step until call stack changes. Use 'sutcs help' for more information."""
     help_dict = { # Using dict format
         "cmd": "sutcs",
@@ -3554,7 +3554,7 @@ def cmd_sutcs(debugger, command, result, dict):
     debugger.HandleCommand("context")
 
 
-def cmd_sutbt(debugger, command, result, dict):
+def cmd_sutbt(debugger, command, result, cdict):
     """Step until branch is taken. Use 'sutbt help' for more information."""
     help_dict = { # Using dict format
         "cmd": "sutbt",
@@ -3614,7 +3614,7 @@ def cmd_sutbt(debugger, command, result, dict):
     debugger.HandleCommand("context")
 
 
-def cmd_suebb(debugger, command, result, dict):
+def cmd_suebb(debugger, command, result, cdict):
     """Step until end of basic block. Use 'suebb help' for more information."""
     help_dict = { # Using dict format
         "cmd": "suebb",
@@ -3681,7 +3681,7 @@ def cmd_suebb(debugger, command, result, dict):
     debugger.HandleCommand("context")
 
 
-def cmd_sumnm(debugger, command, result, dict):
+def cmd_sumnm(debugger, command, result, cdict):
     """Step until matching instruction mnemonic. Use 'sumnm help' for more information."""
     help_dict = { # Using dict format
         "cmd": "sumnm",
@@ -3745,7 +3745,7 @@ def cmd_sumnm(debugger, command, result, dict):
 
 
 # Temporarily breakpoint next instruction
-def cmd_bpn(debugger, command, result, dict):
+def cmd_bpn(debugger, command, result, cdict):
     """Temporarily breakpoint instruction at next address. Use 'bpn help' for more information."""
     help_dict = {
         "cmd": "bpn",
@@ -3791,7 +3791,7 @@ def cmd_bpn(debugger, command, result, dict):
 
 
 # command that sets rax/eax/x0 to 1 or 0 and returns right away from current function
-def cmd_crack(debugger, command, result, dict):
+def cmd_crack(debugger, command, result, cdict):
     """Return from current function and set return value. Use 'crack help' for more information."""
     help_dict = {
         "cmd": "crack",
@@ -3852,7 +3852,7 @@ Most useful when used at the beginning of a function you want to skip.""",
 
 
 # set a breakpoint with return command associated when hit
-def cmd_crackcmd(debugger, command, result, dict):
+def cmd_crackcmd(debugger, command, result, cdict):
     """Breakpoint an address, when hit return from function and set return value. Use 'crackcmd help' for more information."""
     help_dict = {
         "cmd": "crackcmd",
@@ -3918,7 +3918,7 @@ def cmd_crackcmd(debugger, command, result, dict):
     print(f"[+] Set crack command breakpoint #{breakpoint.GetID()} at {hex(address)} to return {return_value}.")
 
 # Callback for crackcmd
-def crackcmd_callback(frame, bp_loc, internal_dict):
+def crackcmd_callback(frame, bp_loc, internal_cdict):
     global crack_cmds
     if not frame or not bp_loc: return # Basic validation
 
@@ -3966,7 +3966,7 @@ def crackcmd_callback(frame, bp_loc, internal_dict):
 
 
 # set a breakpoint with a command that doesn't return, just sets the specified register to a value
-def cmd_crackcmd_noret(debugger, command, result, dict):
+def cmd_crackcmd_noret(debugger, command, result, cdict):
     """Set a breakpoint and a register to a value when hit. Use 'crackcmd_noret help' for more information."""
     help_dict = {
         "cmd": "crackcmd_noret",
@@ -4042,7 +4042,7 @@ def cmd_crackcmd_noret(debugger, command, result, dict):
     print(f"[+] Set crackcmd_noret breakpoint #{breakpoint.GetID()} at {hex(address)} to set {register_name}={value}.")
 
 # Callback for crackcmd_noret
-def crackcmd_noret_callback(frame, bp_loc, internal_dict):
+def crackcmd_noret_callback(frame, bp_loc, internal_cdict):
     global crack_cmds_noret
     if not frame or not bp_loc: return
 
@@ -4089,7 +4089,7 @@ def crackcmd_noret_callback(frame, bp_loc, internal_dict):
 """
 
 # display byte values and ASCII characters
-def cmd_db(debugger, command, result, dict):
+def cmd_db(debugger, command, result, cdict):
     """Display hex dump in byte values and ASCII characters. Use 'db help' for more information."""
     help_dict = {
         "cmd": "db",
@@ -4187,7 +4187,7 @@ def cmd_db(debugger, command, result, dict):
 
 
 # display word values and ASCII characters
-def cmd_dw(debugger, command, result, dict):
+def cmd_dw(debugger, command, result, cdict):
     """Display hex dump in word values and ASCII characters. Use 'dw help' for more information."""
     help_dict = {
         "cmd": "dw",
@@ -4265,7 +4265,7 @@ def cmd_dw(debugger, command, result, dict):
 
 
 # display dword values and ASCII characters
-def cmd_dd(debugger, command, result, dict):
+def cmd_dd(debugger, command, result, cdict):
     """Display hex dump in double word values and ASCII characters. Use 'dd help' for more information."""
     help_dict = {
         "cmd": "dd",
@@ -4339,7 +4339,7 @@ def cmd_dd(debugger, command, result, dict):
 
 
 # display quad values
-def cmd_dq(debugger, command, result, dict):
+def cmd_dq(debugger, command, result, cdict):
     """Display hex dump in quad values. Use 'dq help' for more information."""
     help_dict = {
         "cmd": "dq",
@@ -4475,7 +4475,7 @@ def quotechars(chars):
 
 
 # find memory command
-def cmd_findmem(debugger, command, result, dict):
+def cmd_findmem(debugger, command, result, cdict):
     """Search process memory for a pattern."""
     # Using upstream style help dict
     help_dict = {
@@ -4684,7 +4684,7 @@ Unlike 'memory find', this searches across all readable regions automatically.""
 
 
 # display information about process memory regions similar to vmmap
-def cmd_showregions(debugger, command, result, dict):
+def cmd_showregions(debugger, command, result, cdict):
     """Display memory regions information."""
     help_dict = {
         "cmd": "showregions",
@@ -4791,7 +4791,7 @@ def cmd_showregions(debugger, command, result, dict):
     return
 
 
-def cmd_datawin(debugger, command, result, dict):
+def cmd_datawin(debugger, command, result, cdict):
     """Configure address to display in data window. Use 'datawin help' for more information."""
     help_dict = {
         "cmd": "datawin",
@@ -5091,7 +5091,7 @@ def get_current_sp():
 
 
 # function that updates given register
-def cmd_update_register(debugger, command, result, dict):
+def cmd_update_register(debugger, command, result, cdict):
     """Update register with a new value. Internal command used by aliases."""
     help_dict = {
         "cmd": "update_register",
@@ -5228,7 +5228,7 @@ def modify_cpsr(flag_char):
     #      lldb.debugger.HandleCommand("context")
 
 # Helper for flag commands to reduce boilerplate
-def _flag_cmd_helper(debugger, command, result, flag_char, help_dict):
+def _flag_cmd_helper(debugger, command, result, flag_char, help_cdict):
     cmd = command.split()
     if len(cmd) != 0:
         if cmd[0] == "help":
@@ -5256,7 +5256,7 @@ def _flag_cmd_helper(debugger, command, result, flag_char, help_dict):
 
 
 # AArch64 NZCV register negative bit
-def cmd_cfn(debugger, command, result, dict):
+def cmd_cfn(debugger, command, result, cdict):
     """Change negative flag. Use 'cfn help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfn",
@@ -5268,7 +5268,7 @@ def cmd_cfn(debugger, command, result, dict):
     _flag_cmd_helper(debugger, command, result, "N", help_dict)
 
 # AArch NZCV register overflow bit
-def cmd_cfv(debugger, command, result, dict):
+def cmd_cfv(debugger, command, result, cdict):
     """Change overflow flag. Use 'cfv help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfv",
@@ -5279,7 +5279,7 @@ def cmd_cfv(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "V", help_dict)
 
-def cmd_cfa(debugger, command, result, dict):
+def cmd_cfa(debugger, command, result, cdict):
     """Change adjust flag. Use 'cfa help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfa",
@@ -5290,7 +5290,7 @@ def cmd_cfa(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "A", help_dict)
 
-def cmd_cfc(debugger, command, result, dict):
+def cmd_cfc(debugger, command, result, cdict):
     """Change carry flag. Use 'cfc help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfc",
@@ -5300,7 +5300,7 @@ def cmd_cfc(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "C", help_dict)
 
-def cmd_cfd(debugger, command, result, dict):
+def cmd_cfd(debugger, command, result, cdict):
     """Change direction flag. Use 'cfd help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfd",
@@ -5311,7 +5311,7 @@ def cmd_cfd(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "D", help_dict)
 
-def cmd_cfi(debugger, command, result, dict):
+def cmd_cfi(debugger, command, result, cdict):
     """Change interrupt flag. Use 'cfi help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfi",
@@ -5322,7 +5322,7 @@ def cmd_cfi(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "I", help_dict)
 
-def cmd_cfo(debugger, command, result, dict):
+def cmd_cfo(debugger, command, result, cdict):
     """Change overflow flag. Use 'cfo help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfo",
@@ -5333,7 +5333,7 @@ def cmd_cfo(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "O", help_dict)
 
-def cmd_cfp(debugger, command, result, dict):
+def cmd_cfp(debugger, command, result, cdict):
     """Change parity flag. Use 'cfp help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfp",
@@ -5344,7 +5344,7 @@ def cmd_cfp(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "P", help_dict)
 
-def cmd_cfs(debugger, command, result, dict):
+def cmd_cfs(debugger, command, result, cdict):
     """Change sign flag. Use 'cfs help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfs",
@@ -5355,7 +5355,7 @@ def cmd_cfs(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "S", help_dict)
 
-def cmd_cft(debugger, command, result, dict):
+def cmd_cft(debugger, command, result, cdict):
     """Change trap flag. Use 'cft help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cft",
@@ -5366,7 +5366,7 @@ def cmd_cft(debugger, command, result, dict):
     }
     _flag_cmd_helper(debugger, command, result, "T", help_dict)
 
-def cmd_cfz(debugger, command, result, dict):
+def cmd_cfz(debugger, command, result, cdict):
     """Change zero flag. Use 'cfz help' for more information."""
     help_dict = { # Using dict format
         "cmd": "cfz",
@@ -5724,7 +5724,7 @@ def print_registers():
     Handles 'u' command which displays instructions.
 """
 
-def cmd_DumpInstructions(debugger, command, result, dict):
+def cmd_DumpInstructions(debugger, command, result, cdict):
     """Dump instructions at address. Use 'u help' for more information."""
     help_dict = {
         "cmd": "u",
@@ -5986,7 +5986,7 @@ def disassemble(start_address, nrlines):
 # Commands that use external utilities
 # ------------------------------------
 
-def cmd_show_loadcmds(debugger, command, result, dict):
+def cmd_show_loadcmds(debugger, command, result, cdict):
     """Show otool output of Mach-O load commands. Use 'show_loadcmds help' for more information."""
     help_dict = {
         "cmd": "show_loadcmds",
@@ -6050,7 +6050,7 @@ def cmd_show_loadcmds(debugger, command, result, dict):
     return
 
 
-def cmd_show_header(debugger, command, result, dict):
+def cmd_show_header(debugger, command, result, cdict):
     """Show otool output of Mach-O header. Use 'show_header help' for more information."""
     help_dict = {
         "cmd": "show_header",
@@ -6189,7 +6189,7 @@ def _assembler_cmd_helper(debugger, command, help_dict, ks_arch, ks_mode, ks_syn
         print("No instructions entered.")
 
 
-def cmd_asm32(debugger, command, result, dict):
+def cmd_asm32(debugger, command, result, cdict):
     """32 bit x86 interactive Keystone based assembler. Use 'asm32 help' for more information."""
     help_dict = {
         "cmd": "asm32",
@@ -6200,7 +6200,7 @@ def cmd_asm32(debugger, command, result, dict):
     }
     _assembler_cmd_helper(debugger, command, help_dict, keystone.KS_ARCH_X86, keystone.KS_MODE_32)
 
-def cmd_asm64(debugger, command, result, dict):
+def cmd_asm64(debugger, command, result, cdict):
     """64 bit x86 interactive Keystone based assembler. Use 'asm64 help' for more information."""
     help_dict = {
         "cmd": "asm64",
@@ -6211,7 +6211,7 @@ def cmd_asm64(debugger, command, result, dict):
     }
     _assembler_cmd_helper(debugger, command, help_dict, keystone.KS_ARCH_X86, keystone.KS_MODE_64)
 
-def cmd_arm32(debugger, command, result, dict):
+def cmd_arm32(debugger, command, result, cdict):
     """32 bit ARM interactive Keystone based assembler. Use 'arm32 help' for more information."""
     help_dict = {
         "cmd": "arm32",
@@ -6222,7 +6222,7 @@ def cmd_arm32(debugger, command, result, dict):
     }
     _assembler_cmd_helper(debugger, command, help_dict, keystone.KS_ARCH_ARM, keystone.KS_MODE_ARM)
 
-def cmd_armthumb(debugger, command, result, dict):
+def cmd_armthumb(debugger, command, result, cdict):
     """32 bit ARM Thumb interactive Keystone based assembler. Use 'armthumb help' for more information."""
     help_dict = {
         "cmd": "armthumb",
@@ -6233,7 +6233,7 @@ def cmd_armthumb(debugger, command, result, dict):
     }
     _assembler_cmd_helper(debugger, command, help_dict, keystone.KS_ARCH_ARM, keystone.KS_MODE_THUMB)
 
-def cmd_arm64(debugger, command, result, dict):
+def cmd_arm64(debugger, command, result, cdict):
     """64 bit ARM interactive Keystone based assembler. Use 'arm64 help' for more information."""
     help_dict = {
         "cmd": "arm64",
@@ -6250,7 +6250,7 @@ def cmd_arm64(debugger, command, result, dict):
 
 
 # --- Kept cmd_IphoneConnect from lrt ---
-def cmd_IphoneConnect(debugger, command, result, dict):
+def cmd_IphoneConnect(debugger, command, result, cdict):
     """Connect to debugserver running on iPhone. Use 'iphone help' for more information."""
     help_dict = { # Use dict format
         "cmd": "iphone",
@@ -6631,7 +6631,7 @@ def get_objectivec_selector(src_addr):
 # ----------------
 
 
-def cmd_fixret(debugger, command, result, dict):
+def cmd_fixret(debugger, command, result, cdict):
     """Fix return breakpoint anti-debugging. Use 'fixret help' for more information."""
     help_dict = {
         "cmd": "fixret",
@@ -6747,7 +6747,7 @@ def get_module_offset(address, module):
     return address - base
 
 
-def cmd_addcomment(debugger, command, result, dict):
+def cmd_addcomment(debugger, command, result, cdict):
     """Add comment to address. Use 'acm help' for more information."""
     help_dict = {
         "cmd": "acm",
@@ -6830,7 +6830,7 @@ def cmd_addcomment(debugger, command, result, dict):
     debugger.HandleCommand("context")
 
 
-def cmd_delcomment(debugger, command, result, dict):
+def cmd_delcomment(debugger, command, result, cdict):
     """Delete comment from address. Use 'dcm help' for more information."""
     help_dict = {
         "cmd": "dcm",
@@ -6895,7 +6895,7 @@ def cmd_delcomment(debugger, command, result, dict):
         err_msg(f"No comment found at address {hex(address)} (offset {offset_hex} in {module.GetFileSpec().GetFilename()}).")
 
 
-def cmd_listcomments(debugger, command, result, dict):
+def cmd_listcomments(debugger, command, result, cdict):
     """List all user comments. Use 'lcm help' for more information."""
     help_dict = {
         "cmd": "lcm",
@@ -7219,7 +7219,7 @@ def save_json_session(filepath):
 
 
 # save the breakpoint session
-def cmd_save_session(debugger, command, result, dict):
+def cmd_save_session(debugger, command, result, cdict):
     """Save current breakpoints to a named session. Use 'ss help' for more information."""
     help_dict = {
         "cmd": "ss",
@@ -7327,7 +7327,7 @@ def cmd_save_session(debugger, command, result, dict):
 
 
 # restore the breakpoint session
-def cmd_restore_session(debugger, command, result, dict):
+def cmd_restore_session(debugger, command, result, cdict):
     """Restore breakpoints from a named session. Use 'rs help' for more information."""
     help_dict = {
         "cmd": "rs",
@@ -7460,7 +7460,7 @@ def cmd_restore_session(debugger, command, result, dict):
 
 
 # list all the available breakpoint sessions
-def cmd_list_sessions(debugger, command, result, dict):
+def cmd_list_sessions(debugger, command, result, cdict):
     """List saved breakpoint sessions. Use 'ls help' for more information."""
     help_dict = {
         "cmd": "ls",
@@ -7503,7 +7503,7 @@ def cmd_list_sessions(debugger, command, result, dict):
 
 
 # Run command alias/wrapper
-def cmd_run(debugger, command, result, dict):
+def cmd_run(debugger, command, result, cdict):
     """Run the target, stopping at entry. Pass arguments after 'rr'. Use 'rr help' for more information."""
     help_dict = {
         "cmd": "rr", # Using lrt's 'rr' alias name
@@ -7547,13 +7547,13 @@ Any arguments provided after 'rr' are passed to the target process.""",
 # ------------------------------------------------------------
 
 # This seems unused based on the setup. The stop hook is HandleHookStopOnTarget.
-def HandleProcessLaunchHook(debugger, command, result, dict):
+def HandleProcessLaunchHook(debugger, command, result, cdict):
     print("[lrt] Process Launch Hook Triggered (This hook is likely unused).")
     return 0 # Required return
 
 
 # Main stop hook
-def HandleHookStopOnTarget(debugger, command, result, dict):
+def HandleHookStopOnTarget(debugger, command, result, cdict):
     """Displays the context view (registers, stack, code) when the debugger stops."""
     global g_current_target
     global g_sessiondata
