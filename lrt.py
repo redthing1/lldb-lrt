@@ -5683,7 +5683,7 @@ def regarm64():
         print() # Newline after each row
 
     # PC and CPSR line
-    print(COLOR_REGNAME + "   PC: " + RESET, end='')
+    print(COLOR_REGNAME + "   pc: " + RESET, end='')
     pc_val = current.get("pc", 0)
     c = COLOR_REGVAL_MODIFIED if pc_val != old_arm64.get("pc", -1) else COLOR_REGVAL
     print(c + "0x{:016x}".format(pc_val) + RESET, end='')
@@ -7581,9 +7581,15 @@ def HandleProcessLaunchHook(debugger, command, result, cdict):
     return 0 # Required return
 
 
-# Main stop hook
-def HandleHookStopOnTarget(debugger, command, result, cdict):
-    """Displays the context view (registers, stack, code) when the debugger stops."""
+# this only happens if there is a lldb stop
+# also any commands that depend on a target existing can't run
+# this creates a problem for hashing the target and loading the database
+# since this hook hits many times on a debugging session (stepping code for example)
+# one idea could be to define a hook on dyld_start that gets hit when we use
+# process launch -s
+# this would allow us to initialize everything only once but potentially conflict with user workflow
+def HandleHookStopOnTarget(debugger, command, result, dict):
+    """Display current code context."""
     global g_current_target
     global g_sessiondata
     global g_home
@@ -7591,185 +7597,169 @@ def HandleHookStopOnTarget(debugger, command, result, cdict):
     global g_sessionfile
     global CONFIG_DISPLAY_STACK_WINDOW
     global CONFIG_DISPLAY_FLOW_WINDOW
-    global CONFIG_DISPLAY_DATA_WINDOW
     global POINTER_SIZE
 
-    # blacklist
-    path_blacklist = [
-        "/Applications/Xcode"
-    ]
-    # don't run in blacklisted paths
-    for path in path_blacklist:
-        if os.getenv("PATH", "").startswith(path): return
+    # if DEBUG:
+    #   start_time = time.time()
+
+    # Don't do anything if we're inside Xcode otherwise it will block everything there
+    if os.getenv("PATH").startswith("/Applications/Xcode"):
+        return
 
     target = get_target()
-    # if not target or not target.IsValid(): return # No target, nothing to show
-    if not target or not target.IsValid():
-        err_msg("No valid target found. Please start the target first.")
-
-    process = target.GetProcess()
-    # if not process or not process.IsValid(): return # No process, nothing to show
-    if not process or not process.IsValid():
-        err_msg("No valid process found. Please start the target first.")
-        return
-
-    # Avoid running if process is exited or not stopped properly
-    state = process.GetState()
-    # if state in (lldb.eStateExited, lldb.eStateDetached, lldb.eStateInvalid): return
-    if state in (lldb.eStateExited, lldb.eStateDetached, lldb.eStateInvalid):
-        err_msg(f"Process state is {state}. Not displaying context.")
-        return
-
-    # Check if *any* thread is stopped
-    stopped_thread = None
-    for thread in process:
-        if thread.IsValid() and thread.GetStopReason() != lldb.eStopReasonNone and thread.GetStopReason() != lldb.eStopReasonInvalid:
-            stopped_thread = thread
-            break
-    # if not stopped_thread: return # No thread actually stopped, nothing to show context for
-    if not stopped_thread:
-        err_msg("No thread is currently stopped. Cannot display context.")
-        return
-
-    # Use the stopped thread to get the frame
-    frame = stopped_thread.GetSelectedFrame()
-    if not frame or not frame.IsValid():
-         # This can happen briefly during setup or teardown
-         # print("[!] No valid frame for stopped thread.")
-         err_msg("No valid frame for stopped thread.")
-         return
-
-    # --- Session Loading/Initialization ---
     exe = target.executable
-    current_exe_path = exe.fullpath if exe else ""
+    # XXX: there is a bug with older version where this hook is triggered on attach
+    #      but the memory regions are still empty here
+    #      in newer versions this doesn't occur because the hook doesn't trigger on attach (and executing "context" command works ok)
+    #      this also means that we don't automatically get the display on attach and need to issue context if we wish so
+    #
+    #      the error message is: [-] ERROR: Invalid memory region.
+    #      and a traceback to exception: Exception: [!] warning: get_frame() failed. Is the target binary started?
+    #
+    # workaround for older versions
+    # at least Xcode 10.1 has this problem
+    # issuing the get memory regions on every stop has huge performance penalty on newer xcode versions (at least with Xcode 15.4)
+    # XXX: needs more versions tested to find out where is the true cut off version
+    if LLDB_VARIANT == "apple" and LLDB_MAJOR <= 1000:
+        if get_process().GetMemoryRegions().GetSize() == 0:
+            print("[!] Attaching to process and memory regions info still not available. Use 'context' command to display current state.\n")
+            return
 
-    # Check if target changed or session not loaded
-    if g_current_target != current_exe_path or not g_sessiondata:
-        g_current_target = current_exe_path
-        g_target_hash = hash_target() # Hash the new target
+    # load or initialize on first usage or different target
+    # XXX: there is a bug in LLDB where it doesn't update the basename and fullpath internally if the files are identical
+    #      but are started from different paths
+    #      it does launch the new executable if we use "target create" after running the initial target
+    #      but "target list" shows info of the previous one
+    #      this happens if we launch with "lldb target" or empty and create the target inside
+    #      if target files are different it works as expected
+    if g_current_target == "" or g_current_target != exe.fullpath:
+        g_current_target = exe.fullpath
+        # we use the hash to lookup database file
+        # one side effect (positive?) is that we don't have hash conflicts
+        # since if there is hash mismatch the db file doesn't exist
+        # x64dbg uses name instead and deals with the mismatches
+        g_target_hash = hash_target()
+        g_sessionfile = g_home + "/.lldb/" + g_target_hash + ".json"
+        # load for a known target
+        if os.path.exists(g_sessionfile):
+            with open(g_sessionfile, "r") as f:
+                g_sessiondata = json.load(f)
+            if DEBUG:
+                print(g_sessiondata)
+            # check if hashes match
+            # this is unreachable when hashes are used
+            # if g_sessiondata["target"]["hash"] != g_target_hash:
+            #    print("[!] Mismatch between target hash and database hash!")
+                # XXX: initialize a new database? what to do here?
+        # initialize for a new target
+        else:
+            # create skeleton
+            # better use a version in case we need future expansion
+            g_sessiondata["version"] = SESSION_VERSION
+            g_sessiondata["comments"] = []
+            # breakpoints and other info will go here
+            g_sessiondata["sessions"] = {}
+            g_sessiondata["target"] = {}
+            g_sessiondata["target"].update({
+                "name": exe.basename,
+                "path": os.path.abspath(exe.fullpath),
+                "hash": g_target_hash # a bit redudant since the hash is the JSON name but lets keep it
+                })
+            save_json_session(g_sessionfile)
+            if DEBUG:
+                print(g_sessiondata)
 
-        if g_target_hash:
-            if not g_home: g_home = os.getenv("HOME", ".") # Ensure g_home is set
-            g_sessionfile = os.path.join(g_home, ".lldb", f"{g_target_hash}.json")
-            print(f"[lrt] Target changed/loaded. Hash: {g_target_hash[:12]}... Session file: {g_sessionfile}")
-
-            # Load existing session file or initialize new one
-            if os.path.exists(g_sessionfile):
-                try:
-                    with open(g_sessionfile, "r") as f:
-                        loaded_data = json.load(f)
-                        # Basic validation/migration if needed
-                        if isinstance(loaded_data, dict) and loaded_data.get("version") == SESSION_VERSION:
-                             g_sessiondata = loaded_data
-                             print(f"[lrt] Loaded session data version {SESSION_VERSION}.")
-                        elif isinstance(loaded_data, dict) and loaded_data.get("version") == 1:
-                             err_msg(f"Session file {g_sessionfile} is v1. Please use lrt v3.1 or update file structure. Reinitializing.")
-                             g_sessiondata = {} # Force reinit
-                        else:
-                             err_msg(f"Session file {g_sessionfile} has unrecognized format or version. Reinitializing.")
-                             g_sessiondata = {} # Force reinit
-
-                except (IOError, json.JSONDecodeError) as e:
-                    err_msg(f"Failed to load session file '{g_sessionfile}': {e}. Reinitializing.")
-                    g_sessiondata = {} # Reinitialize on load error
-            else:
-                 print(f"[lrt] No existing session file found. Initializing new session data.")
-                 g_sessiondata = {} # Initialize empty if file doesn't exist
-
-            # Ensure basic structure exists if data was empty or reinitialized
-            if not g_sessiondata:
-                g_sessiondata['version'] = SESSION_VERSION
-                g_sessiondata['comments'] = []
-                g_sessiondata['sessions'] = {}
-                g_sessiondata['target'] = {
-                    "name": exe.basename if exe else "unknown",
-                    "path": current_exe_path if current_exe_path else "unknown",
-                    "hash": g_target_hash
-                }
-                save_json_session(g_sessionfile) # Save the initial structure
-
-        else: # Hashing failed
-             err_msg("Could not hash target. Session features will be unavailable.")
-             g_sessionfile = ""
-             g_sessiondata = {}
-
-
-    # --- Context Display ---
-    # Determine separator lengths based on architecture
-    top_sep, header_sep, stack_sep, bottom_sep = "", "", "", ""
-    arch = get_arch()
-    if arch == "i386":
-        top_sep = SEPARATOR * I386_TOP_SIZE; header_sep = SEPARATOR * I386_HEADER_SIZE
-        stack_sep = SEPARATOR * I386_STACK_SIZE; bottom_sep = SEPARATOR * I386_BOTTOM_SIZE
-    elif arch.startswith("x86_64"):
-        top_sep = SEPARATOR * X64_TOP_SIZE; header_sep = SEPARATOR * X64_HEADER_SIZE
-        stack_sep = SEPARATOR * X64_STACK_SIZE; bottom_sep = SEPARATOR * X64_BOTTOM_SIZE
-    elif arch.startswith("arm6") or arch.startswith("aarch64"):
-        top_sep = SEPARATOR * ARM_TOP_SIZE; header_sep = SEPARATOR * ARM_HEADER_SIZE
-        stack_sep = SEPARATOR * ARM_STACK_SIZE; bottom_sep = SEPARATOR * ARM_BOTTOM_SIZE
+    # the separator strings based on configuration and target arch
+    if is_i386():
+        top_sep = SEPARATOR * I386_TOP_SIZE
+        header_sep = SEPARATOR * I386_HEADER_SIZE
+        stack_sep = SEPARATOR * I386_STACK_SIZE
+        bottom_sep = SEPARATOR * I386_BOTTOM_SIZE
+    elif is_x64():
+        top_sep = SEPARATOR * X64_TOP_SIZE
+        header_sep = SEPARATOR * X64_HEADER_SIZE
+        stack_sep = SEPARATOR * X64_STACK_SIZE
+        bottom_sep = SEPARATOR * X64_BOTTOM_SIZE
+    elif is_arm():
+        header_sep = SEPARATOR * ARM_HEADER_SIZE
+        top_sep = SEPARATOR * ARM_TOP_SIZE
+        stack_sep = SEPARATOR * ARM_STACK_SIZE
+        bottom_sep = SEPARATOR * ARM_BOTTOM_SIZE
     else:
-        err_msg(f"Context view layout not defined for architecture: {arch}")
-        # Use x64 as default?
-        top_sep = SEPARATOR * X64_TOP_SIZE; header_sep = SEPARATOR * X64_HEADER_SIZE
-        stack_sep = SEPARATOR * X64_STACK_SIZE; bottom_sep = SEPARATOR * X64_BOTTOM_SIZE
+        arch = get_arch()
+        err_msg("Unknown and unsupported architecture : " + arch)
+        return
 
+    debugger.SetAsync(True)
 
-    # Update dynamic pointer size
-    global POINTER_SIZE # Ensure global is modified
-    POINTER_SIZE = target.addr_size
+    # when we start the thread is still not valid and get_frame() will always generate a warning
+    # this way we avoid displaying it in this particular case
+    if get_process().GetNumThreads() == 1:
+        thread = get_process().GetThreadAtIndex(0)
+        if not thread.IsValid():
+            return
 
-    # Get stop reason info (breakpoint name)
+    frame = get_frame()
+    if not frame:
+        return
+
+    # XXX: this has a small bug - if we reload the script and try commands that depend on POINTER_SIZE
+    # they will use the default value instead of the target until the context command is issued
+    # or this hook is called
+    POINTER_SIZE = get_pointer_size()
+
+    # if we stopped because of a breakpoint try to extract which was it so we can display the name if it exists
     bp_name = ""
-    stop_reason = stopped_thread.GetStopReason()
+    thread = frame.GetThread()
+    stop_reason = thread.GetStopReason()
     if stop_reason == lldb.eStopReasonBreakpoint:
-        # Stop reason data is breakpoint ID(s)
-        if stopped_thread.GetStopReasonDataCount() > 0:
-            bp_id = stopped_thread.GetStopReasonDataAtIndex(0) # Get first BP ID
+        if thread.GetStopReasonDataCount() > 0:
+            # this gives us the breakpoint id
+            bp_id = thread.GetStopReasonDataAtIndex(0)
+            # now we can try to locate it
             bpx = target.FindBreakpointByID(bp_id)
-            if bpx and bpx.IsValid():
-                names = lldb.SBStringList()
-                bpx.GetNames(names)
-                if names.IsValid() and names.GetSize() > 0:
-                    bp_name = names.GetStringAtIndex(0) # Get first name
+            # and build the names list
+            names = lldb.SBStringList()
+            bpx.GetNames(names)
+            if names.IsValid():
+                # we assume there is only one breakpoint name
+                bp_name = names.GetStringAtIndex(0)
 
-    # Print context view using direct print()
-    # Thread ID Header
-    print(COLOR_SEPARATOR + f"[ Tid:{stopped_thread.GetIndexID():<3} ]" + header_sep + RESET)
+    output(COLOR_SEPARATOR + "[ tid:{:^3d} ]".format(thread.GetIndexID()))
+    output(COLOR_SEPARATOR + header_sep)
 
-    # Registers
-    print(BOLD + "[regs]" + RESET)
-    print_registers() # This function now uses direct print
+    output(BOLD + "[regs]\n" + RESET)
+    print_registers()
 
-    # Stack Window
     if CONFIG_DISPLAY_STACK_WINDOW == 1:
-        display_stack() # This function now uses direct print and handles separator/title
+        output(COLOR_SEPARATOR + stack_sep)
+        output(BOLD + "[stack]\n" + RESET)
+        display_stack()
+        output("\n")
 
-    # Data Window
     if CONFIG_DISPLAY_DATA_WINDOW == 1:
-        display_data() # This function now uses direct print and handles separator/title
+        output(COLOR_SEPARATOR + top_sep)
+        output(BOLD + "[data]\n" + RESET)
+        display_data()
+        output("\n")
 
-    # Flow Window
     if CONFIG_DISPLAY_FLOW_WINDOW == 1:
-        print(COLOR_SEPARATOR + top_sep + RESET) # Separator
-        print(BOLD + "[flow]" + RESET)
-        display_indirect_flow() # This function now uses direct print
+        output(COLOR_SEPARATOR + top_sep)
+        output(BOLD + "[flow]\n" + RESET)
+        display_indirect_flow()
 
-    # Code Window
-    print(COLOR_SEPARATOR + top_sep + RESET) # Separator
-    print(BOLD + "[code]" + RESET)
-    disassemble(get_current_pc(), CONFIG_DISASSEMBLY_LINE_COUNT) # This uses direct print
+    output(COLOR_SEPARATOR + top_sep)
+    output(BOLD + "[code]\n" + RESET)
 
-    # Bottom separator and extra info
-    print(COLOR_SEPARATOR + bottom_sep + RESET)
-    if bp_name:
-        print("Stopped at breakpoint: " + COLOR_YELLOW + bp_name + RESET)
-    else:
-        # Print general stop reason if not a named breakpoint
-        stop_reason_str = lldb.SBDebugger.StopReasonString(stop_reason)
-        print(f"Stop reason: {stop_reason_str}")
-
-    # Final newline handled implicitly by last print? Add one for safety.
-    print()
-
-    # result.SetStatus(lldb.eReturnStatusSuccessFinishResult) # Let LLDB handle status
-    return # Stop hook doesn't need return value
+    # disassemble and add its contents to output inside
+    disassemble(get_current_pc(), CONFIG_DISASSEMBLY_LINE_COUNT)
+    output(COLOR_SEPARATOR + bottom_sep + RESET)
+    # XXX: find a better place for this - or maybe not
+    if bp_name != "":
+        output("\nBreakpoint name: " + bp_name)
+    # final newline to get correct prompt
+    output("\n")
+    result.SetStatus(lldb.eReturnStatusSuccessFinishResult)
+    # if DEBUG:
+    #   print("{} seconds".format(time.time() - start_time))
+    return 0
